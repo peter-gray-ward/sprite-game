@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+	<main>
+		<section id="view">
+			{% for i in range(400) %}
+				<div class="block" id="block-{{ i }}"></div>
+			{% endfor %}
+		</section>
+		<section id="controls">
+			<div id="controller">
+				<div id="tabs">
+					<ul>
+						<li><a href="#search-images">Search Images</a></li>
+						<li><a href="#browse-images">Browse Images</a></li>
+						<li><a href="#edit-blocks">Edit Blocks</a></li>
+					</ul>
+					<div id="search-images">
+						<div id="search-bar">
+							<input id="pixabay-search" data-page="1" placeholder="search images" />
+							<button id="search-pixabay">search</button>
+						</div>
+						<div id="pixabay-results"></div>
+					</div>
+					<div id="browse-images"></div>
+					<div id="edit-blocks"></div>
+				</div>
+			</div>
+			{% include "auth/log.html" %}
+		</section>
+	</main>
+{% endblock %}

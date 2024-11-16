@@ -1,0 +1,5 @@
+Metadata-Version: 2.1
+Name: flaskr
+Version: 1.0.0
+Summary: The basic blog app built in the Flask tutorial.
+Requires-Dist: flask

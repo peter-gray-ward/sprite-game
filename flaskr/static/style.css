@@ -1,0 +1,125 @@
+html, body, main {
+	width: 100vw;
+	height: 100vh;
+	margin: 0;
+	padding: 0;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+main {
+	display: flex;
+	flex-direction: row;
+}
+
+
+#view {
+	height: min(70vw, 100vh);
+	width: min(70vw, 100vh);
+	background: black;
+	cursor: pointer;
+	display: flex;
+	flex-wrap: wrap;
+	gap: none;
+}
+
+.block {
+	width: 5%;
+	height: 5%;
+	margin: 0;
+	border: 1px dotted white;
+}
+
+
+
+#controls {
+	height: 100vh;
+	width: 30vw;
+	flex-grow: 1;
+	background: whitesmoke;
+	box-sizing: border-box;
+	cursor: default;
+	display: flex;
+	flex-direction: column;
+}
+
+#controller {
+	height: 95%;
+}
+
+#search-images {
+	display: flex;
+	flex-direction: column;
+}
+
+#search-bar {
+	width: 100%;
+	padding: 0.15rem;
+	display: flex;
+	flex-direction: row;
+}
+
+#pixabay-search {
+	padding: 0.1rem;
+	font-size: 0.9rem;
+	background: white;
+	flex-grow: 1;
+	height: 100;
+}
+
+#search-pixabay {
+	padding: 0.1rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	background: #EBEDEF;
+}
+
+#search-pixabay:hover {
+	background: black;
+	color: white;
+}
+
+#search-pixabay:active {
+	outline: 2px solid blue;
+}
+
+#pixabay-results {
+	display: flex;
+	flex-direction: row;
+	flex-grow: 1;
+	flex-wrap: wrap;
+	gap: none;
+	padding: 0.15rem;
+}
+
+.pixabay-result {
+	width: calc(30vw * 0.33);
+	height: calc(30vw * 0.33);
+	background-size: contain !important;
+	background-repeat: no-repeat !important;
+}
+
+.pixabay-result.over {
+	background: lightyellow;
+}
+
+.pixabay-result:hover {
+	cursor: grab;
+}
+
+#log {
+	justify-self: flex-end;
+	height: 5%;
+	background: slategray;
+	color: lawngreen;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	text-indent: 0.15rem;
+	font-size: 0.75rem;
+	font-family: Andale Mono;
+}

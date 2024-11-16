@@ -1,0 +1,13 @@
+<section id="log">
+	{% if 'user' in data %}
+		<p>{{ data.user.name }}: {{ data.user.id }}</p> <button>log out</button>
+	{% else %}
+		<form method="post">
+			<label for="username">Username</label>
+			<input name="username" id="username" required>
+			<label for="password">Password</label>
+			<input type="password" name="password" id="password" required>
+			<input type="submit" value="Log In">
+		</form>
+	{% endif %}
+</section>
