@@ -1,12 +1,25 @@
 var events = {
   '#search-pixabay:click': SearchPixabay,
-  '#pixabay-results:scroll': ScrollPixabayResults
+  '#pixabay-results:scroll': ScrollPixabayResults,
+  '.pixabay-result:dblclick': SaveImage
 }
+
+function AddEvents(selector, element) {
+  for (var key in events) {
+    var split_key = key.split(':')
+    if (split_key[0] == selector) {
+      document.querySelectorAll(split_key[0]).forEach(element => {
+        element.addEventListener(split_key[1], events[key])
+      })
+    }
+  }
+}
+
+var search_results = {}
 
 for (var key in events) {
   var split_key = key.split(':')
   document.querySelectorAll(split_key[0]).forEach(element => {
-    console.log(element, split_key[0], split_key[1])
     element.addEventListener(split_key[1], events[key])
   })
 }
@@ -14,8 +27,9 @@ for (var key in events) {
 function Pixabay(term, page) {
   return new Promise(resolve => {
     term = term.trim().split(' ').join('+')
+    var image_type = $('#search-vector').is(':checked') ? 'vector' : 'all'
     var xhr = new XMLHttpRequest()
-    xhr.open('GET', `https://pixabay.com/api/?key=25483695-93658ed46b8876fc2d6419379&q=${term}&per_page=25&image_type=vector&page=${page}`)
+    xhr.open('GET', `https://pixabay.com/api/?key=25483695-93658ed46b8876fc2d6419379&q=${term}&per_page=25&image_type=${image_type}&page=${page}`)
     xhr.addEventListener('load', function() {
       resolve(JSON.parse(this.response))
     })
@@ -23,21 +37,29 @@ function Pixabay(term, page) {
   })
 }
 
-function SearchPixabay(event) {
-  console.log(event)
+var searching = false
+function SearchPixabay(event, fresh = true) {
+  if (searching) return
+  searching = true
   var elem = document.getElementById('pixabay-search')
+  var results = document.getElementById('pixabay-results')
+  if (fresh) {
+    results.innerHTML = ''
+  }
   var term = elem.value
   var page = elem.dataset.page
   Pixabay(term, page).then(json => {
-    var results = document.getElementById('pixabay-results')
+    console.log(json.hits.length)
     for (var i = 0; i < json.hits.length; i++) {
       var div = document.createElement('div')
       div.classList.add('pixabay-result')
       div.style.background = `url(${json.hits[i].largeImageURL})`
       MakeDraggable(div)
+      AddEvents('.pixabay-result', div)
       results.appendChild(div)
     }
     elem.dataset.page = +page + 1
+    searching = false
   })
 }
 
@@ -45,9 +67,8 @@ function ScrollPixabayResults(event) {
   const scrollableElement = event.target;
   const isAtBottom = 
     scrollableElement.scrollHeight - scrollableElement.scrollTop <= scrollableElement.clientHeight;
-
   if (isAtBottom) {
-    SearchPixabay();
+    SearchPixabay(null, false);
   }
 }
 
@@ -67,10 +88,10 @@ function SaveImage(event) {
 function MakeDraggable(element) {
   $(element).draggable({
     start: function(event, ui) {
-      
+      $('#pixabay-results').css('overflow', 'visible')
     },
     stop: function(event, ui) {
-      
+      $('#pixabay-results').css('overflow', 'auto')
     },
     revert: "invalid"
   })

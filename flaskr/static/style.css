@@ -30,8 +30,12 @@ main {
 	height: 5%;
 	margin: 0;
 	border: 1px dotted white;
+	z-index: 0;
 }
 
+.ui-draggable {
+	z-index: 1;
+}
 
 
 #controls {
@@ -59,14 +63,30 @@ main {
 	padding: 0.15rem;
 	display: flex;
 	flex-direction: row;
+	align-items: center;
+}
+
+#search-bar label, #search-bar input {
+	font-size: 0.9rem;
+	display: flex;
+	align-items: center;
+	margin: 0.1rem;
+	font-style: italic;
 }
 
 #pixabay-search {
-	padding: 0.1rem;
+	padding: 0.05rem;
 	font-size: 0.9rem;
 	background: white;
 	flex-grow: 1;
-	height: 100;
+}
+
+#pixabay-search:focus {
+	outline: none;
+}
+
+#search-vector {
+	font-size: 2rem;
 }
 
 #search-pixabay {
@@ -94,11 +114,14 @@ main {
 	flex-wrap: wrap;
 	gap: none;
 	padding: 0.15rem;
+	justify-content: space-around;
+	height: calc(min(70vw, 100vh) - 15vh);
+	overflow: auto;
 }
 
 .pixabay-result {
-	width: calc(30vw * 0.33);
-	height: calc(30vw * 0.33);
+	width: calc(30vw / 3.18);
+	height: calc(30vw / 3.18);
 	background-size: contain !important;
 	background-repeat: no-repeat !important;
 }
@@ -111,9 +134,28 @@ main {
 	cursor: grab;
 }
 
+.ui-tabs .ui-tabs-nav .ui-tabs-anchor, #pixabay-search {
+	font-size: 1.75vh;
+}
+
+.ui-tabs .ui-tabs-panel {
+	padding: 0.2rem !important;
+}
+
+.ui-widget.ui-widget-content {
+	padding: 0 !important;
+}
+
+.ui-tabs .ui-tabs-nav, #log, #search-bar {
+	height: 5vh;
+}
+
+#tabs {
+	height: 100%;
+}
+
 #log {
 	justify-self: flex-end;
-	height: 5%;
 	background: slategray;
 	color: lawngreen;
 	display: flex;
