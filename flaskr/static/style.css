@@ -39,6 +39,7 @@ main {
 
 .ui-draggable {
 	z-index: 1;
+	opacity: 0.5;
 }
 
 
@@ -159,6 +160,11 @@ a.ui-button:active,
 	padding: 0.2rem !important;
 }
 
+.ui-tabs .ui-tabs-nav {
+	display: flex;
+	align-items: end;
+}
+
 .ui-widget.ui-widget-content {
 	padding: 0 !important;
 }
@@ -175,7 +181,7 @@ a.ui-button:active,
 }
 
 #drop-dimensions {
-	width: calc(100% / 3);
+	width: 50%;
 	display: flex;
 	align-items: center;
 }
@@ -205,4 +211,34 @@ a.ui-button:active,
 	background: slategray;
 	color: lawngreen;
 }
+
+
+
+
+
+
+
+
+@media (max-width: 1093px) {
+	.ui-tabs .ui-tabs-nav .ui-tabs-anchor {
+		font-size: 1.05vw;
+	}
+}
+
+@media (max-width: 1000px) {
+	.ui-tabs .ui-tabs-nav .ui-tabs-anchor {
+		font-size: 1vw;
+	}
+	#search-pixabay, #pixabay-search, #search-bar label {
+		font-size: 1vw !important;
+	}
+}
+
+
+
+
+
+
+
+
 

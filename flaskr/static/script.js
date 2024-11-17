@@ -4,6 +4,19 @@ var events = {
   '.pixabay-result:dblclick': SaveImage
 }
 
+Array.prototype.contains = function(str) {
+  for (var i = 0; i < this.length; i++) {
+    if (this[i] == str) {
+      return true
+    }
+  }
+  return false
+}
+
+var view = {
+  dimension: 20
+}
+
 function AddEvents(selector, element) {
   for (var key in events) {
     var split_key = key.split(':')
@@ -83,8 +96,9 @@ function MakeDraggable(element) {
     },
     stop: function(event, ui) {
       $('#pixabay-results').css('overflow', 'auto')
+      $('.block').removeClass('over')
     },
-    revert: "invalid"
+    revert: true
   })
 }
 
@@ -94,14 +108,19 @@ function MakeDroppable(element) {
 
     },
     over: function(event, ui) {
+      $('.block').removeClass('over')
       const dimensions = {
-        width: $("#drop-dimensions .width").val(),
-        height: $("#drop-dimensions .height").val()
+        width: Math.floor($("#drop-dimensions .width").val()),
+        height: Math.floor($("#drop-dimensions .height").val())
       }
-      $(event.target).addClass("over")
-    },
-    out: function(event, ui) {
-      $(event.target).removeClass("over")
+      var id = event.target.id.replace('block_', '').split('-').map(Number)
+      for (var i = id[0]; i < id[0] + dimensions.height; i++) {
+        for (var j = id[1]; j < id[1] + dimensions.width; j++) {
+          if (i < view.dimension && j < view.dimension) {
+            $(`#block_${i}-${j}`).addClass('over')
+          }
+        }
+      }
     }
   })
 }

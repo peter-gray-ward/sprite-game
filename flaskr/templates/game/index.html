@@ -5,7 +5,7 @@
 	<main>
 		<section id="view">
 			{% for i in range(400) %}
-				<div class="block" id="block-{{ i // 20 }}_{{ i % 20 }}"></div>
+				<div class="block" id="block_{{ i // 20 }}-{{ i % 20 }}"></div>
 			{% endfor %}
 		</section>
 		<section id="controls">
