@@ -2,9 +2,9 @@ import functools
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, 
-    request, session, url_for
+    request, session, url_for, jsonify
 )
-
+import json
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 from flaskr.db import get_db
@@ -12,7 +12,7 @@ import uuid
 
 api = Blueprint('auth', __name__, url_prefix='/auth')
 
-@api.route('/register', methods=('GET', 'POST'))
+@api.route('/register', methods=('POST',))
 def register():
     if request.method == 'POST':
         name = request.form['name']
@@ -47,12 +47,12 @@ def register():
 
     return render_template('auth/register.html')
 
-@api.route('/login', methods=('GET', 'POST'))
+@api.route('/login', methods=('POST',))
 def login():
-    if request.method == 'POST':
-        name = request.form['name']
-        password = request.form['password']
-        db = get_db()
+    form = json.loads(request.data.decode("utf-8"))
+    name = form['username']
+    password = form['password']
+    with get_db() as db:
         error = None
         
         cursor = db.cursor()
@@ -66,23 +66,20 @@ def login():
         )
         user = cursor.fetchone()
 
-        print(user)
         if user is None:
-            error = 'Incorrect name.'
+            return jsonify({ 'status': 'incorrect name' })
         elif not check_password_hash(user['password'], password):
-            error = 'Incorrect password.'
+            return jsonify({ 'status': 'incorrect password' })
         
         if error is None:
             session.clear()
             session['user_id'] = user['id']
-            now = datetime.now().date()
-            session['selected_month'] = now.month
-            session['selected_year'] = now.year
-            return redirect(url_for('index'))
         
-        flash(error)
-    
-    return render_template('auth/login.html')
+        cursor.close()
+
+        return jsonify({ 'status': 'success' })
+
+    return jsonify({ 'status': 'failure' })
         
 
 def login_required(view):

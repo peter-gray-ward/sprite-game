@@ -18,6 +18,16 @@ def get_db():
                 password=env['password']
             )
             g.db.cursor_factory = RealDictCursor
+
+        # with open(os.path.join(current_app.root_path, 'schema.sql'), 'r') as file:
+        #     schema = file.read()
+
+        # cursor = g.db.cursor()
+        # cursor.execute(schema)
+        # g.db.commit()
+
+        # print("Tables created successfully!")
+        # cursor.close()
     return g.db
 
 def close_db(e=None):

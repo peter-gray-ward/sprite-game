@@ -37,7 +37,7 @@ main {
 	background: aliceblue;
 }
 
-.ui-draggable {
+.ui-draggable-handle.dragging {
 	z-index: 1;
 	opacity: 0.5;
 }
@@ -127,6 +127,10 @@ main {
 	background-repeat: no-repeat !important;
 }
 
+.pixabay-result.saved {
+	border: 2px solid lawngreen;
+}
+
 .pixabay-result.over {
 	background: lightyellow;
 }
@@ -197,6 +201,7 @@ a.ui-button:active,
 
 #log {
 	justify-self: flex-end;
+	align-items: center;
 	background: #EBEDEF;
 	display: flex;
 	flex-direction: row;

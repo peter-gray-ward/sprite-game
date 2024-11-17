@@ -1,7 +1,9 @@
 var events = {
+  '#log-in:click': Login,
   '#search-pixabay:click': SearchPixabay,
   '#pixabay-results:scroll': ScrollPixabayResults,
-  '.pixabay-result:dblclick': SaveImage
+  '.pixabay-result:dblclick': SaveImage,
+  '#image-browse-select:change': SelectTag
 }
 
 Array.prototype.contains = function(str) {
@@ -15,6 +17,25 @@ Array.prototype.contains = function(str) {
 
 var view = {
   dimension: 20
+}
+
+var control = {
+  image_urls: {}
+}
+
+function Login() {
+  var xhr = new XMLHttpRequest()
+  xhr.open('POST', '/auth/login')
+  xhr.addEventListener('load', function() {
+    var res = JSON.parse(this.response)
+    if (res.status == 'success') {
+      location.reload()
+    }
+  })
+  xhr.send(JSON.stringify({
+    username: $('#username').val(),
+    password: $('#password').val()
+  }))
 }
 
 function AddEvents(selector, element) {
@@ -41,30 +62,36 @@ function Pixabay(term, page) {
   })
 }
 
+function AppendImageDiv(results, image_url, tag, selector) {
+  var div = document.createElement('div')
+  div.classList.add('pixabay-result')
+  div.style.background = `url(${image_url})`
+  div.dataset.tag = tag
+  MakeDraggable(div)
+  AddEvents(selector, div)
+  results.appendChild(div)
+}
+
 var searching = false
 function SearchPixabay(event, fresh = true) {
   if (searching) return
   searching = true
-  var elem = document.getElementById('pixabay-search')
-  var results = document.getElementById('pixabay-results')
-  if (fresh) {
-    results.innerHTML = ''
-  }
-  var term = elem.value
-  var page = elem.dataset.page
-  Pixabay(term, page).then(json => {
-    console.log(json.hits.length)
-    for (var i = 0; i < json.hits.length; i++) {
-      var div = document.createElement('div')
-      div.classList.add('pixabay-result')
-      div.style.background = `url(${json.hits[i].largeImageURL})`
-      MakeDraggable(div)
-      AddEvents('.pixabay-result', div)
-      results.appendChild(div)
+  try {
+    var elem = document.getElementById('pixabay-search')
+    var results = document.getElementById('pixabay-results')
+    if (fresh) {
+      results.innerHTML = ''
     }
-    elem.dataset.page = +page + 1
-    searching = false
-  })
+    var term = elem.value
+    var page = elem.dataset.page
+    Pixabay(term, page).then(json => {
+      for (var i = 0; i < json.hits.length; i++) {
+        AppendImageDiv(results, json.hits[i].largeImageURL, term, '.pixabay-result')
+      }
+      elem.dataset.page = +page + 1
+      searching = false
+    })
+  } catch (err) {} finally { searching = false; }
 }
 
 function ScrollPixabayResults(event) {
@@ -77,24 +104,29 @@ function ScrollPixabayResults(event) {
 }
 
 function SaveImage(event) {
-  return new Promise(resolve => {
-    var url = event.srcElement.style.background.replace('url(', '').replace(')', '')
-    var xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/save-image')
-    xhr.addEventListener('load', function() {
-      var res = JSON.parse(this.response)
-      resolve(res)
-    })
-    xhr.send(url)
+  var url = event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '')
+  var xhr = new XMLHttpRequest()
+  xhr.open('POST', '/save-image')
+  xhr.addEventListener('load', function() {
+    var res = JSON.parse(this.response)
+    if (res.status == 'success') {
+      $(event.srcElement).addClass('saved')
+    }
   })
+  xhr.send(JSON.stringify({
+    url,
+    tag: event.srcElement.dataset.tag
+  }))
 }
 
 function MakeDraggable(element) {
   $(element).draggable({
     start: function(event, ui) {
+      $(this).addClass('dragging')
       $('#pixabay-results').css('overflow', 'visible')
     },
     stop: function(event, ui) {
+      $(this).removeClass('dragging')
       $('#pixabay-results').css('overflow', 'auto')
       $('.block').removeClass('over')
     },
@@ -125,6 +157,45 @@ function MakeDroppable(element) {
   })
 }
 
+function LoadImageIds() {
+  var xhr = new XMLHttpRequest()
+  xhr.open('GET', '/get-image-ids')
+  xhr.addEventListener('load', function() {
+    var res = JSON.parse(this.response)
+    if (res.status == 'success') {
+      var imageBrowseSelect = document.getElementById('image-browse-select')
+      imageBrowseSelect.innerHTML = '<option>select tag</option>'
+      var imageBrowseResults = document.getElementById('image-browse-results')
+      imageBrowseResults.innerHTML = ''
+      control.image_urls = {}
+      var tags = Array.from(new Set(res.data.map(d => d.tag)))
+      for (var i = 0; i < tags.length; i++) {
+        var option = document.createElement("option")
+        option.value = tags[i]
+        option.innerHTML = tags[i]
+        imageBrowseSelect.appendChild(option)
+        if (!control.image_urls[tags[i]]) {
+          control.image_urls[tags[i]] = []
+        }
+      }
+      for (var i = 0; i < res.data.length; i++) {
+        control.image_urls[res.data[i].tag].push(`/get-image/${res.data[i].id}`)
+      }
+    }
+  })
+  xhr.send()
+}
+
+function SelectTag(event) {
+  var tag = event.srcElement.value
+  $('#selected-image-tag').html(tag)
+  var results = document.getElementById('image-browse-results')
+  for (var image_url of control.image_urls[tag]) {
+    console.log(image_url)
+    AppendImageDiv(results, image_url, tag, '.image')
+  }
+}
+
 $( function() {
   for (var key in events) {
     var split_key = key.split(':')
@@ -137,5 +208,16 @@ $( function() {
     MakeDroppable(element)
   })
 
-  $('#tabs').tabs()
+  $('#tabs').tabs({
+    activate: function(event, ui) {
+      console.log('activate')
+      switch (event.delegateTarget.href.split('/').pop()) {
+      case "#browse-images":
+        LoadImageIds()
+        break;
+      default: 
+        break;
+      }
+    }
+  })
 } )
