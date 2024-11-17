@@ -33,6 +33,10 @@ main {
 	z-index: 0;
 }
 
+.block.over {
+	background: aliceblue;
+}
+
 .ui-draggable {
 	z-index: 1;
 }
@@ -90,21 +94,17 @@ main {
 }
 
 #search-pixabay {
-	padding: 0.1rem;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	background: slategray;
+	color: lawngreen;
+	font-size: 0.8rem;
+	padding: 0.25rem;
+	border-radius: 5px;
 	border: none;
-	background: #EBEDEF;
-}
-
-#search-pixabay:hover {
-	background: black;
-	color: white;
+	cursor: pointer;
 }
 
 #search-pixabay:active {
-	outline: 2px solid blue;
+	background: black;
 }
 
 #pixabay-results {
@@ -115,7 +115,7 @@ main {
 	gap: none;
 	padding: 0.15rem;
 	justify-content: space-around;
-	height: calc(min(70vw, 100vh) - 15vh);
+	height: calc(min(70vw, 100vh) - 20vh);
 	overflow: auto;
 }
 
@@ -134,8 +134,25 @@ main {
 	cursor: grab;
 }
 
-.ui-tabs .ui-tabs-nav .ui-tabs-anchor, #pixabay-search {
+.ui-tabs .ui-tabs-nav .ui-tabs-anchor {
 	font-size: 1.75vh;
+	color: lawngreen;
+	background: slategray;
+	border: none;
+}
+
+.ui-state-active,
+.ui-widget-content .ui-state-active,
+.ui-widget-header .ui-state-active,
+a.ui-button:active,
+.ui-button:active, 
+.ui-button.ui-state-active:hover {
+	border: none !important;
+}
+
+.ui-tabs-active .ui-tabs-anchor {
+	background: black !important;
+	border: none;
 }
 
 .ui-tabs .ui-tabs-panel {
@@ -150,14 +167,31 @@ main {
 	height: 5vh;
 }
 
+#drop-options {
+	width: 100%;
+	height: 5vh;
+	display: flex;
+	flex-direction: row;
+}
+
+#drop-dimensions {
+	width: calc(100% / 3);
+	display: flex;
+	align-items: center;
+}
+
+#drop-dimensions input {
+	width: 40%;
+	text-align: center;
+}
+
 #tabs {
 	height: 100%;
 }
 
 #log {
 	justify-self: flex-end;
-	background: slategray;
-	color: lawngreen;
+	background: #EBEDEF;
 	display: flex;
 	flex-direction: row;
 	justify-content: space-between;
@@ -165,3 +199,10 @@ main {
 	font-size: 0.75rem;
 	font-family: Andale Mono;
 }
+
+#log button {
+	border: none;
+	background: slategray;
+	color: lawngreen;
+}
+

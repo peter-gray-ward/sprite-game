@@ -5,7 +5,7 @@
 	<main>
 		<section id="view">
 			{% for i in range(400) %}
-				<div class="block" id="block-{{ i }}"></div>
+				<div class="block" id="block-{{ i // 20 }}_{{ i % 20 }}"></div>
 			{% endfor %}
 		</section>
 		<section id="controls">
@@ -17,6 +17,7 @@
 						<li><a href="#edit-blocks">Edit Blocks</a></li>
 					</ul>
 					<div id="search-images">
+						{% include "game/drop-options.html" %}
 						<div id="search-bar">
 							<input id="pixabay-search" data-page="1" placeholder="search images" />
 							<label>vector:</label><input type="checkbox" id="search-vector" />
@@ -24,7 +25,9 @@
 						</div>
 						<div id="pixabay-results"></div>
 					</div>
-					<div id="browse-images"></div>
+					<div id="browse-images">
+						{% include "game/drop-options.html" %}
+					</div>
 					<div id="edit-blocks"></div>
 				</div>
 			</div>

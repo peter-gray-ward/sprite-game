@@ -15,15 +15,6 @@ function AddEvents(selector, element) {
   }
 }
 
-var search_results = {}
-
-for (var key in events) {
-  var split_key = key.split(':')
-  document.querySelectorAll(split_key[0]).forEach(element => {
-    element.addEventListener(split_key[1], events[key])
-  })
-}
-
 function Pixabay(term, page) {
   return new Promise(resolve => {
     term = term.trim().split(' ').join('+')
@@ -103,16 +94,29 @@ function MakeDroppable(element) {
 
     },
     over: function(event, ui) {
+      const dimensions = {
+        width: $("#drop-dimensions .width").val(),
+        height: $("#drop-dimensions .height").val()
+      }
       $(event.target).addClass("over")
     },
     out: function(event, ui) {
-      $(event.target).removeClass("out")
+      $(event.target).removeClass("over")
     }
   })
 }
 
-$('.block').each(function(_, element) {
-  MakeDroppable(element)
-})
+$( function() {
+  for (var key in events) {
+    var split_key = key.split(':')
+    document.querySelectorAll(split_key[0]).forEach(element => {
+      element.addEventListener(split_key[1], events[key])
+    })
+  }
 
-$('#tabs').tabs()
+  $('.block').each(function(_, element) {
+    MakeDroppable(element)
+  })
+
+  $('#tabs').tabs()
+} )
