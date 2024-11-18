@@ -132,38 +132,64 @@ function MakeDraggable(element) {
   $(element).draggable({
     start: function(event, ui) {
       $(this).addClass('dragging')
-      $('#pixabay-results').css('overflow', 'visible')
+      $('#pixabay-results, #image-browse-results').css('overflow', 'visible')
     },
     stop: function(event, ui) {
       $(this).removeClass('dragging')
-      $('#pixabay-results').css('overflow', 'auto')
-      $('.block').removeClass('over')
+      $('#pixabay-results, #image-browse-results').css('overflow', 'auto')
+      $('.tile').removeClass('over')
     },
     revert: true
   })
 }
 
+var drop_blocks = []
 function MakeDroppable(element) {
    $(element).droppable({
     drop: function(event, ui) {
-
+      console.log(drop_blocks)
+      SaveBlocks(drop_blocks)
     },
     over: function(event, ui) {
-      $('.block').removeClass('over')
-      const dimensions = {
-        width: Math.floor($("#drop-dimensions .width").val()),
-        height: Math.floor($("#drop-dimensions .height").val())
-      }
-      var id = event.target.id.replace('block_', '').split('-').map(Number)
-      for (var i = id[0]; i < id[0] + dimensions.height; i++) {
-        for (var j = id[1]; j < id[1] + dimensions.width; j++) {
-          if (i < view.dimension && j < view.dimension) {
-            $(`#block_${i}-${j}`).addClass('over')
+      $('.tile').removeClass('over')
+      drop_blocks = []
+      const dimensions = Math.abs(Math.floor($(".drop-dimensions input").filter(':visible').val()))
+      const xRepeat = Math.abs(Math.floor($(".x-repeat").filter(':visible').val()))
+      const yRepeat = Math.abs(Math.floor($(".y-repeat").filter(':visible').val()))
+      var id = event.target.id.replace('tile_', '').split('-').map(Number)
+      for (var y = id[0]; y < id[0] + (dimensions * yRepeat); y += dimensions) {
+        for (var x = id[1]; x < id[1] + (dimensions * xRepeat); x += dimensions) {
+          drop_blocks.push({
+            start: [y, x],
+            end: [y + dimensions - 1, x + dimensions - 1]
+          })
+          for (var i = y; i < y + dimensions; i++) {
+            for (var j = x; j < x + dimensions; j++) {
+              if (i < view.dimension && j < view.dimension) {
+                $(`#tile_${i}-${j}`).addClass('over')
+              }
+            }
           }
         }
       }
     }
   })
+}
+
+function SaveBlocks(drop_blocks) {
+  var xhr = new XMLHttpRequest()
+  xhr.open('POST', '/save-blocks')
+  xhr.addEventListener('load', function() {
+    var res = JSON.parse(this.response)
+    if (res.status == 'success') {
+      LoadView()
+    }
+  })
+  xhr.send(JSON.stringify(drop_blocks))
+}
+
+function LoadView() {
+
 }
 
 function LoadImageIds() {
@@ -209,11 +235,11 @@ $( function() {
   console.log('starting...')
   var view = document.getElementById('view')
   for (var i = 0; i < 400; i++) {
-    var block = document.createElement('div')
-    block.id = `block_${ i / 20 }-${ i % 20 }`
-    block.classList.add('block')
-    MakeDroppable(block)
-    view.appendChild(block)
+    var tile = document.createElement('div')
+    tile.id = `tile_${ Math.floor(i / 20) }-${ i % 20 }`
+    tile.classList.add('tile')
+    MakeDroppable(tile)
+    view.appendChild(tile)
   }
 
   for (var key in events) {

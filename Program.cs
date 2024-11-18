@@ -16,7 +16,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Npgsql; // Ensure you have this package installed
+using App;
 
+bool editSchema = false;
 var userId = "6f7b8307-5130-4dbf-ba8e-e54a855a5357";
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -32,6 +34,12 @@ app.MapGet("/", async context =>
 
 // Database connection string
 string connectionString = builder.Configuration.GetConnectionString("CloudConnection");
+
+if (editSchema)
+{
+	EditSchema es = new EditSchema(connectionString);
+	es.Run();
+}
 
 // API endpoint for index
 app.MapGet("/api/", async context =>
@@ -175,6 +183,25 @@ app.MapGet("/get-image/{imageId}", async context =>
         context.Response.StatusCode = 500;
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
     }
+});
+
+app.MapPost("/save-blocks", async context =>
+{
+	var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+	List<List<int>> drop_block_ids = JsonSerializer.Deserialize<List<List<int>>>(body);
+	try
+	{
+		using (var connection = new NpgsqlConnection(connectionString))
+		{
+			await connection.OpenAsync();
+
+		}
+	}
+	catch (Exception e)
+	{
+		context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
+	}
 });
 
 app.Run();

@@ -21,10 +21,12 @@
                         <li><a href="#edit-blocks">Edit Blocks</a></li>
                     </ul>
                     <div id="search-images">
-                        <div id="drop-options">
-                            <div id="drop-dimensions">
-                                <input type="number" class="width" value="1"/>&nbsp;x&nbsp;<input type="number" class="height" value="1"/>
+                        <div class="drop-options">
+                            <div class="drop-dimensions">
+                                <label>dimension</label>&nbsp;<input type="number" class="width" value="1"/>
                             </div>
+                            <label>x-repeat</label><input type="number" name="x-repeat" class="x-repeat" value="1" />
+                            <label>y-repeat</label><input type="number" name="y-repeat" class="y-repeat" value="1" />
                         </div>  
                         <div id="search-bar">
                             <input id="pixabay-search" data-page="1" placeholder="search images" />
@@ -34,10 +36,12 @@
                         <div id="pixabay-results"></div>
                     </div>
                     <div id="browse-images">
-                        <div id="drop-options">
-                            <div id="drop-dimensions">
-                                <input type="number" class="width" value="1"/>&nbsp;x&nbsp;<input type="number" class="height" value="1"/>
+                        <div class="drop-options">
+                            <div class="drop-dimensions">
+                                <label>dimension</label><input type="number" class="width" value="1"/>
                             </div>
+                            <label>x-repeat</label><input type="number" name="x-repeat" class="x-repeat" value="1" />
+                            <label>y-repeat</label><input type="number" name="y-repeat" class="y-repeat" value="1" />
                         </div>  
                         <select id="image-browse-select"></select>
                         <div id="image-browse-results"></div>
