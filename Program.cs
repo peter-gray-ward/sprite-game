@@ -31,7 +31,7 @@ app.MapGet("/", async context =>
 });
 
 // Database connection string
-string connectionString = "Host=cfv89ambqptmdb.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com;Database=d7dc4h6194givb;Username=u1ukdbfgobgc4;Password=p8402bc015160dea0f3e78c08f8a612768398864e86341b28e3c2ac8e311552c6";
+string connectionString = "Host=localhost;Username=peter;Password=enter123";
 
 // API endpoint for index
 app.MapGet("/api/", async context =>

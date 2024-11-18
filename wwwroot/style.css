@@ -106,7 +106,7 @@ main {
 	background: black;
 }
 
-#pixabay-results {
+#pixabay-results, #image-browse-results {
 	display: flex;
 	flex-direction: row;
 	flex-grow: 1;

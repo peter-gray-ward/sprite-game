@@ -188,7 +188,6 @@ function LoadImageIds() {
 
 function SelectTag(event) {
   var tag = event.srcElement.value
-  $('#selected-image-tag').html(tag)
   var results = document.getElementById('image-browse-results')
   for (var image_url of control.image_urls[tag]) {
     console.log(image_url)
