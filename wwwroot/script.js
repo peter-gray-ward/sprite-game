@@ -73,6 +73,7 @@ function AppendImageDiv(results, image_url, tag, selector) {
 }
 
 var searching = false
+var urls = {}
 function SearchPixabay(event, fresh = true) {
   if (searching) return
   searching = true
@@ -81,12 +82,20 @@ function SearchPixabay(event, fresh = true) {
     var results = document.getElementById('pixabay-results')
     if (fresh) {
       results.innerHTML = ''
+      urls = {}
     }
     var term = elem.value
     var page = elem.dataset.page
     Pixabay(term, page).then(json => {
+      var hits = []
       for (var i = 0; i < json.hits.length; i++) {
-        AppendImageDiv(results, json.hits[i].largeImageURL, term, '.pixabay-result')
+        if (!urls[json.hits[i].largeImageURL]) {
+          urls[json.hits[i].largeImageURL] = true
+          hits.push(json.hits[i])
+        }
+      } 
+      for (var i = 0; i < hits.length; i++) {
+        AppendImageDiv(results, hits[i].largeImageURL, term, '.pixabay-result')
       }
       elem.dataset.page = +page + 1
       searching = false
@@ -189,6 +198,7 @@ function LoadImageIds() {
 function SelectTag(event) {
   var tag = event.srcElement.value
   var results = document.getElementById('image-browse-results')
+  results.innerHTML = ''
   for (var image_url of control.image_urls[tag]) {
     console.log(image_url)
     AppendImageDiv(results, image_url, tag, '.image')

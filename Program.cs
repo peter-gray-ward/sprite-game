@@ -31,7 +31,7 @@ app.MapGet("/", async context =>
 });
 
 // Database connection string
-string connectionString = "Host=localhost;Username=peter;Password=enter123";
+string connectionString = builder.Configuration.GetConnectionString("CloudConnection");
 
 // API endpoint for index
 app.MapGet("/api/", async context =>
