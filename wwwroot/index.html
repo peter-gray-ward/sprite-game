@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="jquery-ui/jquery-ui.min.css">
+    <link rel="stylesheet" href="jquery-ui/jquery-ui.structure.min.css">
+    <link rel="stylesheet" href="jquery-ui/jquery-ui.theme.min.css">
+</head>
+<body>
+    <main>
+        <section id="view">
+        </section>
+        <section id="controls">
+            <div id="controller">
+                <div id="tabs">
+                    <ul>
+                        <li><a href="#search-images">Search Images</a></li>
+                        <li><a href="#browse-images">Browse Images</a></li>
+                        <li><a href="#edit-blocks">Edit Blocks</a></li>
+                    </ul>
+                    <div id="search-images">
+                        <div id="drop-options">
+                            <div id="drop-dimensions">
+                                <input type="number" class="width" value="1"/>&nbsp;x&nbsp;<input type="number" class="height" value="1"/>
+                            </div>
+                        </div>  
+                        <div id="search-bar">
+                            <input id="pixabay-search" data-page="1" placeholder="search images" />
+                            <label>vector:</label><input type="checkbox" id="search-vector" />
+                            <button id="search-pixabay">search</button>
+                        </div>
+                        <div id="pixabay-results"></div>
+                    </div>
+                    <div id="browse-images">
+                        <div id="drop-options">
+                            <div id="drop-dimensions">
+                                <input type="number" class="width" value="1"/>&nbsp;x&nbsp;<input type="number" class="height" value="1"/>
+                            </div>
+                        </div>  
+                        <select id="image-browse-select"></select>
+                        <h2 id="selected-image-tag"></h2>
+                        <div id="image-browse-results"></div>
+                    </div>
+                    <div id="edit-blocks"></div>
+                </div>
+            </div>
+            <section id="log">
+                <!-- {% if 'user' in data %}
+                    <p>{{ data.user.name }}: {{ data.user.id }}</p> <button id="log-out">log out</button>
+                {% else %}
+                    <section>
+                        <label for="username">Username</label>
+                        <input name="username" id="username" required>
+                        <label for="password">Password</label>
+                        <input type="password" name="password" id="password" required>
+                        <buttom id="log-in">log in</buttom>
+                    </section>
+                {% endif %} -->
+            </section>
+        </section>
+    </main>
+    <script src="jquery-ui/external/jquery/jquery.js"></script>
+    <script src="jquery-ui/jquery-ui.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

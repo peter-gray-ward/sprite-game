@@ -197,16 +197,22 @@ function SelectTag(event) {
 }
 
 $( function() {
+  console.log('starting...')
+  var view = document.getElementById('view')
+  for (var i = 0; i < 400; i++) {
+    var block = document.createElement('div')
+    block.id = `block_${ i / 20 }-${ i % 20 }`
+    block.classList.add('block')
+    MakeDroppable(block)
+    view.appendChild(block)
+  }
+
   for (var key in events) {
     var split_key = key.split(':')
     document.querySelectorAll(split_key[0]).forEach(element => {
       element.addEventListener(split_key[1], events[key])
     })
   }
-
-  $('.block').each(function(_, element) {
-    MakeDroppable(element)
-  })
 
   $('#tabs').tabs({
     activate: function(event, ui) {
