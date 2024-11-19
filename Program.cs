@@ -50,6 +50,7 @@ app.MapGet("/", async context =>
 
 if (editSchema)
 {
+    Console.WriteLine("connection string: " + connectionString);
 	EditSchema es = new EditSchema(connectionString);
 	es.Run();
 }
@@ -92,7 +93,7 @@ app.MapPost("/login", async context =>
             context.Response.Cookies.Append("name", credentials["name"], new CookieOptions
             {
                 HttpOnly = false, // Accessible via JavaScript if needed
-                Secure = true,
+                Secure = false,
                 SameSite = SameSiteMode.Lax
             });
 
@@ -146,15 +147,8 @@ app.MapGet("/api/", async context =>
 // Save image endpoint
 app.MapPost("/save-image", async context =>
 {
-    object _userId;
-    if (!context.Items.TryGetValue("userId", out _userId))
-    {
-        context.Response.ContentType = "text/html";
-        await context.Response.SendFileAsync("wwwroot/auth.html");
-    }
-    string userId = _userId.ToString();
+    string user_name = context.Session.GetString("name");
 
-    //var userId = context.Session.GetString("user_id");
     var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
 
     // Deserialize the request body into a Dictionary
@@ -193,11 +187,11 @@ app.MapPost("/save-image", async context =>
         using (var connection = new NpgsqlConnection(connectionString))
         {
             await connection.OpenAsync();
-            var command = new NpgsqlCommand("INSERT INTO public.images (id, tag, src, user_id) VALUES (@id, @tag, @src, @userId)", connection);
+            var command = new NpgsqlCommand("INSERT INTO public.images (id, tag, src, user_name) VALUES (@id, @tag, @src, @username)", connection);
             command.Parameters.AddWithValue("id", imageId);
             command.Parameters.AddWithValue("tag", tag);
             command.Parameters.AddWithValue("src", imageData);
-            command.Parameters.AddWithValue("userId", Guid.Parse(userId));
+            command.Parameters.AddWithValue("user_name", user_name);
             await command.ExecuteNonQueryAsync();
         }
 
@@ -214,21 +208,17 @@ app.MapPost("/save-image", async context =>
 // Get image IDs endpoint
 app.MapGet("/get-image-ids", async context =>
 {
-    object _userId;
-    if (!context.Items.TryGetValue("userId", out _userId))
-    {
-        context.Response.ContentType = "text/html";
-        await context.Response.SendFileAsync("wwwroot/auth.html");
-    }
-    string userId = _userId.ToString();
+    string user_name = context.Session.GetString("name");
+
+    Console.WriteLine("Getting image ids for " + user_name);
 
     try
     {
         using (var connection = new NpgsqlConnection(connectionString))
         {
             await connection.OpenAsync();
-            var command = new NpgsqlCommand("SELECT id, tag FROM public.images WHERE user_id = @userId GROUP BY tag, id", connection);
-            command.Parameters.AddWithValue("userId", Guid.Parse(userId));
+            var command = new NpgsqlCommand("SELECT id, tag FROM public.images WHERE user_name = @user_name GROUP BY tag, id", connection);
+            command.Parameters.AddWithValue("user_name", user_name);
             var reader = await command.ExecuteReaderAsync();
 
             var images = new List<object>();
@@ -251,13 +241,7 @@ app.MapGet("/get-image-ids", async context =>
 // Get image by ID endpoint
 app.MapGet("/get-image/{imageId}", async context =>
 {
-    object _userId;
-    if (!context.Items.TryGetValue("userId", out _userId))
-    {
-        context.Response.ContentType = "text/html";
-        await context.Response.SendFileAsync("wwwroot/auth.html");
-    }
-    string userId = _userId.ToString();
+    string user_name = context.Session.GetString("name");
 
     var imageId = context.Request.RouteValues["imageId"].ToString();
     if (imageId is null)
@@ -270,8 +254,8 @@ app.MapGet("/get-image/{imageId}", async context =>
         using (var connection = new NpgsqlConnection(connectionString))
         {
             await connection.OpenAsync();
-            var command = new NpgsqlCommand("SELECT src FROM public.images WHERE user_id = @userId AND id = @imageId", connection);
-            command.Parameters.AddWithValue("userId", Guid.Parse(userId));
+            var command = new NpgsqlCommand("SELECT src FROM public.images WHERE user_name = @user_name AND id = @imageId", connection);
+            command.Parameters.AddWithValue("user_name", user_name);
             command.Parameters.AddWithValue("imageId", Guid.Parse(imageId));
             var reader = await command.ExecuteReaderAsync();
 
@@ -297,13 +281,7 @@ app.MapGet("/get-image/{imageId}", async context =>
 
 app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 {
-    object _userId;
-    if (!context.Items.TryGetValue("userId", out _userId))
-    {
-        context.Response.ContentType = "text/html";
-        await context.Response.SendFileAsync("wwwroot/auth.html");
-    }
-    string userId = _userId.ToString();
+    string user_name = context.Session.GetString("name");
 
 	try
 	{
@@ -318,11 +296,12 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 			{
 				var command = new NpgsqlCommand(@$"
 					INSERT INTO public.images
-					(id, level_id, image_id, start_x, start_y, end_x, end_y)
+					(id, user_name, level_id, image_id, start_x, start_y, end_x, end_y)
 					VALUES
-					(@id, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y)
+					(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y)
 				", connection);
 				command.Parameters.AddWithValue("id", Guid.NewGuid());
+                command.Parameters.AddWithValue("user_name", user_name);
 				command.Parameters.AddWithValue("level_id", levelId);
 				command.Parameters.AddWithValue("image_id", Guid.Parse(imageId));
 				command.Parameters.AddWithValue("start_y", block["start"][0]);

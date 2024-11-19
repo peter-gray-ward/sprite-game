@@ -5,16 +5,96 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Authentication</title>
 	<style>
-		div {
-			display: flex;
-			flex-direction: row;
-			margin-bottom: 1em;
+		/* Global Styling */
+		body {
+			font-family: 'Cinzel', serif; /* Fantasy medieval font */
+			background: url('https://cdn.pixabay.com/photo/2017/07/24/08/20/parchment-2534178_960_720.jpg') no-repeat center center fixed;
+			background-size: cover;
+			color: #3e2723; /* Dark brown medieval text color */
+			padding: 2em;
 		}
 
-		form {
-			margin-right: 1em;
+		h1 {
+			text-align: center;
+			font-size: 2.5em;
+			color: #5d4037; /* Slightly lighter brown */
+			margin-bottom: 1em;
+			text-shadow: 2px 2px #d7ccc8; /* Subtle shadow for depth */
+		}
+
+		/* Form Styling */
+		form, section {
+			background: rgba(255, 255, 255, 0.8); /* Transparent parchment background */
+			border: 2px solid #5d4037; /* Dark brown border */
+			border-radius: 8px;
+			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for elevation */
+			padding: 1em;
+			width: 300px;
+			margin: auto;
+			text-align: center;
+		}
+
+		section input {
+			display: block;
+			width: calc(100% - 1em);
+			margin: 0.5em auto;
+			padding: 0.5em;
+			border: 1px solid #5d4037;
+			border-radius: 4px;
+			font-size: 1em;
+		}
+
+		button {
+			background: #8d6e63; /* Muted medieval brown */
+			color: #ffffff;
+			border: none;
+			border-radius: 4px;
+			padding: 0.5em 1em;
+			font-size: 1.2em;
+			cursor: pointer;
+			transition: background 0.3s ease;
+		}
+
+		button:hover {
+			background: #5d4037; /* Darker brown */
+		}
+
+		/* Message Styling */
+		.message {
+			margin-top: 0.5em;
+			padding: 0.5em;
+			font-style: italic;
+			color: #3e2723; /* Dark brown */
+		}
+
+		/* Div container for sections */
+		div {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: .2em;
+			margin-bottom: .2em;
+		}
+
+		/* Responsive Design */
+		@media (max-width: 600px) {
+			section {
+				width: 100%;
+			}
+
+			h1 {
+				font-size: 2em;
+			}
+
+			button {
+				font-size: 1em;
+			}
 		}
 	</style>
+
+	<!-- Google Font -->
+	<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
 

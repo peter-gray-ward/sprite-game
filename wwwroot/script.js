@@ -256,6 +256,7 @@ $( function() {
   for (var key in events) {
     var split_key = key.split(':')
     document.querySelectorAll(split_key[0]).forEach(element => {
+      console.log(key[1], element)
       element.addEventListener(split_key[1], events[key])
     })
   }

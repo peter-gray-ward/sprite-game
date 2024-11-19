@@ -4,7 +4,7 @@ namespace App
 {
 	public class EditSchema
 	{
-		private string connectionString;
+		private string connectionString { get; set; } = String.Empty;
 		public EditSchema(string connectionString)
 		{
 			this.connectionString = connectionString;
@@ -18,6 +18,7 @@ namespace App
 					DROP TABLE IF EXISTS Block;
 					CREATE TABLE Block (
 						id UUID PRIMARY KEY,
+						user_name TEXT NOT NULL,
 						start_y INT NOT NULL,
 						start_x INT NOT NULL,
 						end_y INT NOT NULL,
@@ -34,7 +35,6 @@ namespace App
 					CREATE TABLE Player (
 						name TEXT PRIMARY KEY NOT NULL,
 						password TEXT NOT NULL,
-						access_token UUID,
 						level INT NOT NULL,
 						position_x FLOAT,
 						position_y FLOAT
@@ -52,6 +52,7 @@ namespace App
 					DROP TABLE IF EXISTS PlayerInventory;
 					CREATE TABLE PlayerInventory (
 						id UUID PRIMARY KEY,
+						user_name TEXT NOT NULL,
 						item_id UUID NOT NULL
 					);
 				", connection);

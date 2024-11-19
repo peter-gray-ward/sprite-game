@@ -5,6 +5,7 @@ namespace App
 {
 	public class Player
 	{
+		private string access_token { get; set; } = String.Empty;
 		public async Task<string> Register(string connectionString, string name, string password)
 		{
 			try
@@ -59,16 +60,7 @@ namespace App
 						if (BCrypt.Net.BCrypt.Verify(password, storedPassword))
 						{
 							var token = Guid.NewGuid();
-
-							// Store the token in the database
-							reader.Close();
-							var updateCommand = new NpgsqlCommand(@"
-								UPDATE Player SET access_token = @token WHERE name = @name
-							", connection);
-							updateCommand.Parameters.AddWithValue("@token", token);
-							updateCommand.Parameters.AddWithValue("@name", name);
-							await updateCommand.ExecuteNonQueryAsync();
-
+							this.access_token = token.ToString();
 							return token.ToString();
 						}
 					}

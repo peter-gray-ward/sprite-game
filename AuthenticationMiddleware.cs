@@ -18,53 +18,33 @@ namespace App
 
 		public async Task InvokeAsync(HttpContext context)
 		{
-			if (context.Request.Path.Equals("/register", StringComparison.OrdinalIgnoreCase) ||
-	        	context.Request.Path.Equals("/login", StringComparison.OrdinalIgnoreCase))
-		    {
-		        await _next(context); // Continue to the next middleware
-		        return;
-		    }
-
-		    string token = context.Session.GetString("access_token");
-		    string name = context.Session.GetString("name");
-
-			if (token == null)
-			{
-				context.Response.ContentType = "text/html";
-        		await context.Response.SendFileAsync("wwwroot/auth.html");
-        		return;
-			}
-
 			try
 			{
-				using (var connection = new NpgsqlConnection(_connectionString))
+				if (context.Request.Path.Equals("/register", StringComparison.OrdinalIgnoreCase) ||
+		        	context.Request.Path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
+		        	context.Request.Path.Equals("/logout", StringComparison.OrdinalIgnoreCase))
+			    {
+			        await _next(context); // Continue to the next middleware
+			        return;
+			    }
+
+			    string token = context.Session.GetString("access_token");
+			    string name = context.Session.GetString("name");
+
+				if (token == null)
 				{
-					await connection.OpenAsync();
-
-					var command = new NpgsqlCommand(@"
-						SELECT name FROM Player WHERE access_token = @token
-					", connection);
-					command.Parameters.AddWithValue("@token", Guid.Parse(token));
-
-					var username = await command.ExecuteScalarAsync();
-
-					if (username == null)
-					{
-						context.Response.ContentType = "text/html";
-	    				await context.Response.SendFileAsync("wwwroot/index.html");
-	    				return;
-	    			}
+					context.Response.ContentType = "text/html";
+	        		await context.Response.SendFileAsync("wwwroot/auth.html");
+	        		return;
 				}
-			}
+
+				await _next(context);
+				return;
+			} 
 			catch (Exception e)
 			{
-				Console.WriteLine($"EXCEPTION {e.Message}");
-				context.Response.ContentType = "text/html";
-        		await context.Response.SendFileAsync("wwwroot/auth.html");
-        		return;
+				await _next(context);
 			}
-
-			await _next(context);
 		}
 	}
 
