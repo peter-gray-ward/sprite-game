@@ -125,6 +125,10 @@ function ScrollPixabayResults(event) {
   }
 }
 
+function ParseImageId(element) {
+  return element.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '').split('/').pop()
+}
+
 function SaveImage(event) {
   var url = event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '')
   var xhr = new XMLHttpRequest()
@@ -146,6 +150,7 @@ function MakeDraggable(element) {
     start: function(event, ui) {
       $(this).addClass('dragging')
       $('#pixabay-results, #image-browse-results').css('overflow', 'visible')
+      control.image_id = ParseImageId(element)
     },
     stop: function(event, ui) {
       $(this).removeClass('dragging')
@@ -173,6 +178,7 @@ function MakeDroppable(element) {
       for (var y = id[0]; y < id[0] + (dimensions * yRepeat); y += dimensions) {
         for (var x = id[1]; x < id[1] + (dimensions * xRepeat); x += dimensions) {
           drop_blocks.push({
+            dimension: [dimensions],
             start: [y, x],
             end: [y + dimensions - 1, x + dimensions - 1]
           })
@@ -189,20 +195,75 @@ function MakeDroppable(element) {
   })
 }
 
-function SaveBlocks(drop_blocks) {
+function SaveBlocks(drop_blocks, image_id) {
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', '/save-blocks')
+  const url = '/save-blocks/' + player.level + '/' + control.image_id
+  xhr.open('POST', url)
   xhr.addEventListener('load', function() {
     var res = JSON.parse(this.response)
     if (res.status == 'success') {
       LoadView()
     }
+    control.image_id = ''
   })
   xhr.send(JSON.stringify(drop_blocks))
 }
 
-function LoadView() {
+/**
+ * 
+  "id": "90dd3c12-7dff-40e4-be7b-fc39926daeb3",
+  "user_name": "peter",
+  "start_y": 3,
+  "start_x": 14,
+  "end_y": 3,
+  "end_x": 14,
+  "level_id": 1,
+  "image_id": "d5cb7c95-3db7-40a5-a3e2-55d77dfadf42",
+  "background_size": "contain",
+  "background_repeat": "no-repeat",
+  "translate_x": 0,
+  "translate_y": 0,
+  "scale": 1,
+  "dimension": 1
+  *
+  */
+function CreateAndAddBlock(block) {
+  var div = document.createElement("div");
+  div.classList.add('block');
+  div.style.background = `url(/get-image/${block.image_id})`;
+  div.style.backgroundSize = block.background_size;
+  div.style.backgroundRepeat = block.background_repeat;
+  div.style.transform = `translateX(${block.translate_x}px) translateY(${block.translate_y}px) scale(${block.scale})`;
+  var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
+  var endTile = document.getElementById(`tile_${block.end_y}-${block.end_x}`);
+  var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
+  var tileHeight = tileWidth
+  div.style.width = tileWidth + 'px'
+  div.style.height = tileHeight + 'px'
+  div.style.top = startTile.offsetTop + 'px'
+  div.style.left = startTile.offsetLeft + 'px'
+  document.getElementById('view').appendChild(div)
+}
 
+function GetBlocks() {
+  document.querySelectorAll('.block', function(elem) {
+    element.remove()
+  })
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", '/get-blocks/' + player.level);
+  xhr.addEventListener("load", function() {
+    var res = JSON.parse(this.response)
+    if (res.status == 'success') {
+      for (var block of res.data) {
+        CreateAndAddBlock(block)
+      }
+    }
+  })
+  xhr.send()
+}
+
+function LoadView() {
+  GetBlocks()
 }
 
 function LoadImageIds() {
@@ -252,6 +313,8 @@ $( function() {
     position_x: getCookieValue("position_x"),
     position_y: getCookieValue("position_y")
   }
+
+  GetBlocks()
 
   document.querySelector("#log p").innerHTML = Object.keys(player).map(key => `<div><strong>${key}:</strong> <span>${player[key]}</span></div>`).join('')
 

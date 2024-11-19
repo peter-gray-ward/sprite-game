@@ -251,7 +251,7 @@ app.MapGet("/get-image-ids", async context =>
             {
                 images.Add(new { id = reader["id"], tag = reader["tag"] });
             }
-
+            await reader.CloseAsync();
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", data = images }));
         }
@@ -287,6 +287,9 @@ app.MapGet("/get-image/{imageId}", async context =>
             if (await reader.ReadAsync())
             {
                 var imageData = (byte[])reader["src"];
+
+                await reader.CloseAsync();
+
                 context.Response.ContentType = "image/png";
                 await context.Response.Body.WriteAsync(imageData, 0, imageData.Length);
             }
@@ -317,13 +320,14 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 		using (var connection = new NpgsqlConnection(connectionString))
 		{
 			await connection.OpenAsync();
+            string message = "";
 			foreach (Dictionary<string, List<int>> block in drop_block_ids)
 			{
 				var command = new NpgsqlCommand(@$"
-					INSERT INTO public.images
-					(id, user_name, level_id, image_id, start_x, start_y, end_x, end_y)
+					INSERT INTO public.Block
+					(id, user_name, level_id, image_id, start_x, start_y, end_x, end_y, dimension)
 					VALUES
-					(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y)
+					(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y, @dimension)
 				", connection);
 				command.Parameters.AddWithValue("id", Guid.NewGuid());
                 command.Parameters.AddWithValue("user_name", user_name);
@@ -333,10 +337,12 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 				command.Parameters.AddWithValue("start_x", block["start"][1]);
 				command.Parameters.AddWithValue("end_y", block["end"][0]);
 				command.Parameters.AddWithValue("end_x", block["end"][1]);
+                command.Parameters.AddWithValue("dimension", block["dimension"][0]);
 				await command.ExecuteNonQueryAsync();
-
-				Console.WriteLine($"Saved block {block["start"][0]}, {block["start"][1]}");
+                message += $"Saved block {block["start"][0]}, {block["start"][1]}\n";
 			}
+            context.Response.StatusCode = 200;
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", message = message }));
 		}
 	}
 	catch (Exception e)
@@ -344,6 +350,68 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 		context.Response.StatusCode = 500;
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
 	}
+});
+
+app.MapGet("/get-blocks/{level_id}", async context =>
+{
+    string username = context.Session.GetString("name");
+
+    try 
+    {
+        int levelId = Convert.ToInt32(context.Request.RouteValues["level_id"]);
+        using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            var command = new NpgsqlCommand(@$"
+                SELECT *
+                FROM public.Block
+                WHERE user_name = @user_name
+                AND level_id = @level_id
+            ", connection);
+
+            // Add parameters
+            command.Parameters.AddWithValue("user_name", username);
+            command.Parameters.AddWithValue("level_id", levelId);
+
+            var reader = await command.ExecuteReaderAsync();
+
+            List<Dictionary<string, object>> blocks = new();
+
+            while (await reader.ReadAsync())
+            {
+                Dictionary<string, object> block = new Dictionary<string, object>();
+                
+                // Check and print all fields available
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    string fieldName = reader.GetName(i);
+                    object fieldValue = reader[fieldName];
+
+                    // Print field name and its value
+                    Console.WriteLine($"Found field: {fieldName} = {fieldValue}");
+
+                    // Add to block dictionary
+                    block[fieldName] = fieldValue;
+                }
+
+                // Add block to the list
+                blocks.Add(block);
+            }
+
+            Console.WriteLine($"found {blocks.Count} blocks");
+
+            await reader.CloseAsync();
+
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", data = blocks }));
+
+        }
+    }
+    catch (Exception e)
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
+    }
 });
 
 

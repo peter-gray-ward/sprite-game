@@ -250,7 +250,9 @@ a.ui-button:active,
 }
 
 
-
+.block {
+	position: absolute;
+}
 
 
 
