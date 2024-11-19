@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Authentication</title>
+	<style>
+		div {
+			display: flex;
+			flex-direction: row;
+			margin-bottom: 1em;
+		}
+
+		form {
+			margin-right: 1em;
+		}
+	</style>
+</head>
+<body>
+
+	<h1>Authentication</h1>
+	<div>
+		<section id="register">
+			<input name="name" placeholder="name" required />
+			<input name="password" placeholder="password" type="password" required />
+			<button type="submit" onclick="register(event)">Register</button>
+		</section>
+		<div class="message" id="register-message"></div>
+	</div>
+	<div>
+		<section id="login">
+			<input name="name" placeholder="name" required />
+			<input name="password" placeholder="password" type="password" required />
+			<button type="submit" onclick="login(event)">Login</button>
+		</section>
+		<div class="message" id="login-message"></div>
+	</div>
+
+	<script>
+		function register(event) {
+			event.preventDefault(); // Prevent form from reloading the page
+
+			const x = new XMLHttpRequest();
+			x.open("POST", "/register");
+			x.setRequestHeader("Content-Type", "application/json");
+			x.addEventListener('load', function() {
+				const res = JSON.parse(this.response);
+				document.querySelector('#register-message').textContent = res.message || "Registered successfully!";
+			});
+			x.send(JSON.stringify({
+				name: document.querySelector("#register input[name='name']").value,
+				password: document.querySelector("#register input[name='password']").value
+			}));
+		}
+
+		function login(event) {
+			event.preventDefault(); // Prevent form from reloading the page
+
+			const x = new XMLHttpRequest();
+			x.withCredentials = true;
+			x.open("POST", "/login");
+			x.setRequestHeader("Content-Type", "application/json");
+			x.addEventListener('load', function() {
+				const res = JSON.parse(this.response);
+				document.querySelector('#login-message').textContent = res.message || "Logged in successfully!";
+				if (res.status === 'success') {
+
+					setTimeout(function() {
+						window.location.href = "/"; // Redirect to home
+					}, 1000);
+				}
+			});
+			x.send(JSON.stringify({
+				name: document.querySelector("#login input[name='name']").value,
+				password: document.querySelector("#login input[name='password']").value
+			}));
+		}
+	</script>
+</body>
+</html>

@@ -94,7 +94,7 @@ main {
 	font-size: 2rem;
 }
 
-#search-pixabay {
+.button {
 	background: slategray;
 	color: lawngreen;
 	font-size: 0.8rem;
@@ -104,8 +104,8 @@ main {
 	cursor: pointer;
 }
 
-#search-pixabay:active {
-	background: black;
+.button:active {
+	background: black !important;
 }
 
 #pixabay-results, #image-browse-results {

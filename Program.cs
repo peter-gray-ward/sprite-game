@@ -15,15 +15,30 @@ using System.Text;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
-using Npgsql; // Ensure you have this package installed
+using Npgsql;
 using App;
 
 bool editSchema = false;
-var userId = "6f7b8307-5130-4dbf-ba8e-e54a855a5357";
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDistributedMemoryCache(); // Use in-memory cache for session storage
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true; // Secure against XSS
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // Secure in production
+    options.Cookie.SameSite = SameSiteMode.Lax; // Lax or Strict depending on your needs
+    options.Cookie.Name = ".sprite-game.Session"; // Custom cookie name
+    options.IdleTimeout = TimeSpan.FromMinutes(20); // Session timeout
+});
+
+// Database connection string
+string connectionString = builder.Configuration.GetConnectionString("CloudConnection");
+
 var app = builder.Build();
 
 app.UseStaticFiles();
+app.UseSession();
+app.UseMiddleware<AuthenticationMiddleware>(connectionString);
 
 // Serve index.html at the root URL
 app.MapGet("/", async context =>
@@ -32,14 +47,87 @@ app.MapGet("/", async context =>
     await context.Response.SendFileAsync("wwwroot/index.html");
 });
 
-// Database connection string
-string connectionString = builder.Configuration.GetConnectionString("CloudConnection");
 
 if (editSchema)
 {
 	EditSchema es = new EditSchema(connectionString);
 	es.Run();
 }
+
+app.MapPost("/register", async context =>
+{
+    Console.WriteLine("    /register");
+    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+    try
+    {
+        Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
+        Console.WriteLine("registering", credentials);
+        Player player = new Player();
+        string registered = await player.Register(connectionString, credentials["name"], credentials["password"]);
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = registered }));
+    }
+    catch (Exception e) 
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Error", details = e.Message }));
+        return;
+    }
+});
+
+app.MapPost("/login", async context =>
+{
+    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+    try
+    {
+        Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
+        Player player = new Player();
+        string token = await player.Login(connectionString, credentials["name"], credentials["password"]);
+
+        if (token != null)
+        {
+            
+            context.Session.SetString("access_token", token);
+            context.Session.SetString("name", credentials["name"]);
+
+            context.Response.Cookies.Append("name", credentials["name"], new CookieOptions
+            {
+                HttpOnly = false, // Accessible via JavaScript if needed
+                Secure = true,
+                SameSite = SameSiteMode.Lax
+            });
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", access_token = token }));
+        }
+        else
+        {
+            context.Response.StatusCode = 401; // Unauthorized
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Invalid credentials" }));
+        }
+    }
+    catch (Exception e) 
+    {
+        context.Response.StatusCode = 400; // Bad Request
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Error", details = e.Message }));
+        return;
+    }
+});
+
+app.MapPost("/logout", async context =>
+{
+
+    Console.WriteLine("logging-out");
+    // Clear session data
+    context.Session.Clear();
+
+    // Remove cookies (if applicable)
+    context.Response.Cookies.Delete("name");
+    context.Response.Cookies.Delete(".sprite-game.Session"); // Replace with your actual session cookie name if different
+
+
+    Console.WriteLine("logged-out");
+    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", message = "Logged out successfully" }));
+});
+
 
 // API endpoint for index
 app.MapGet("/api/", async context =>
@@ -54,9 +142,18 @@ app.MapGet("/api/", async context =>
     await context.Response.WriteAsync(JsonSerializer.Serialize(new { data }));
 });
 
+
 // Save image endpoint
 app.MapPost("/save-image", async context =>
 {
+    object _userId;
+    if (!context.Items.TryGetValue("userId", out _userId))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync("wwwroot/auth.html");
+    }
+    string userId = _userId.ToString();
+
     //var userId = context.Session.GetString("user_id");
     var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
 
@@ -93,8 +190,6 @@ app.MapPost("/save-image", async context =>
         var imageData = await response.Content.ReadAsByteArrayAsync();
         var imageId = Guid.NewGuid();
 
-        Console.WriteLine(imageId.ToString(), Guid.Parse(userId).ToString());
-
         using (var connection = new NpgsqlConnection(connectionString))
         {
             await connection.OpenAsync();
@@ -119,7 +214,14 @@ app.MapPost("/save-image", async context =>
 // Get image IDs endpoint
 app.MapGet("/get-image-ids", async context =>
 {
-    //var userId = context.Session.GetString("user_id");
+    object _userId;
+    if (!context.Items.TryGetValue("userId", out _userId))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync("wwwroot/auth.html");
+    }
+    string userId = _userId.ToString();
+
     try
     {
         using (var connection = new NpgsqlConnection(connectionString))
@@ -149,11 +251,19 @@ app.MapGet("/get-image-ids", async context =>
 // Get image by ID endpoint
 app.MapGet("/get-image/{imageId}", async context =>
 {
-    //var userId = context.Session.GetString("user_id");
+    object _userId;
+    if (!context.Items.TryGetValue("userId", out _userId))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync("wwwroot/auth.html");
+    }
+    string userId = _userId.ToString();
+
     var imageId = context.Request.RouteValues["imageId"].ToString();
     if (imageId is null)
     {
     	await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "invalid image id" }));
+        return;
     }
     try
     {
@@ -185,16 +295,44 @@ app.MapGet("/get-image/{imageId}", async context =>
     }
 });
 
-app.MapPost("/save-blocks", async context =>
+app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 {
-	var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-	List<List<int>> drop_block_ids = JsonSerializer.Deserialize<List<List<int>>>(body);
+    object _userId;
+    if (!context.Items.TryGetValue("userId", out _userId))
+    {
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync("wwwroot/auth.html");
+    }
+    string userId = _userId.ToString();
+
 	try
 	{
+		string imageId = context.Request.RouteValues["imageId"].ToString();
+		int levelId = Convert.ToInt32(context.Request.RouteValues["levelId"]);
+		var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+		List<Dictionary<string, List<int>>> drop_block_ids = JsonSerializer.Deserialize<List<Dictionary<string, List<int>>>>(body);
 		using (var connection = new NpgsqlConnection(connectionString))
 		{
 			await connection.OpenAsync();
+			foreach (Dictionary<string, List<int>> block in drop_block_ids)
+			{
+				var command = new NpgsqlCommand(@$"
+					INSERT INTO public.images
+					(id, level_id, image_id, start_x, start_y, end_x, end_y)
+					VALUES
+					(@id, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y)
+				", connection);
+				command.Parameters.AddWithValue("id", Guid.NewGuid());
+				command.Parameters.AddWithValue("level_id", levelId);
+				command.Parameters.AddWithValue("image_id", Guid.Parse(imageId));
+				command.Parameters.AddWithValue("start_y", block["start"][0]);
+				command.Parameters.AddWithValue("start_x", block["start"][1]);
+				command.Parameters.AddWithValue("end_y", block["end"][0]);
+				command.Parameters.AddWithValue("end_x", block["end"][1]);
+				await command.ExecuteNonQueryAsync();
 
+				Console.WriteLine($"Saved block {block["start"][0]}, {block["start"][1]}");
+			}
 		}
 	}
 	catch (Exception e)

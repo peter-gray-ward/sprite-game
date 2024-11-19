@@ -1,5 +1,5 @@
 var events = {
-  '#log-in:click': Login,
+  '#log-out:click': Logout,
   '#search-pixabay:click': SearchPixabay,
   '#pixabay-results:scroll': ScrollPixabayResults,
   '.pixabay-result:dblclick': SaveImage,
@@ -23,20 +23,29 @@ var control = {
   image_urls: {}
 }
 
-function Login() {
+function getCookieValue(cookieName) {
+  const cookies = document.cookie.split(';'); // Split all cookies into an array
+  for (let cookie of cookies) {
+    cookie = cookie.trim(); // Remove leading/trailing whitespace
+    if (cookie.startsWith(`${cookieName}=`)) {
+        return cookie.substring(cookieName.length + 1); // Return the value
+    }
+  }
+  return null; // Return null if the cookie is not found
+}
+
+function Logout() {
+  console.log('logging out')
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', '/auth/login')
+  xhr.open('POST', '/logout')
   xhr.addEventListener('load', function() {
     var res = JSON.parse(this.response)
     if (res.status == 'success') {
       location.reload()
     }
   })
-  xhr.send(JSON.stringify({
-    username: $('#username').val(),
-    password: $('#password').val()
-  }))
-}
+  xhr.send()
+} 
 
 function AddEvents(selector, element) {
   for (var key in events) {
@@ -233,6 +242,8 @@ function SelectTag(event) {
 
 $( function() {
   console.log('starting...')
+  document.querySelector("#log p").innerHTML = getCookieValue("name");
+
   var view = document.getElementById('view')
   for (var i = 0; i < 400; i++) {
     var tile = document.createElement('div')
