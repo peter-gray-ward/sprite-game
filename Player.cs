@@ -5,7 +5,10 @@ namespace App
 {
 	public class Player
 	{
-		private string access_token { get; set; } = String.Empty;
+		public string access_token { get; set; } = String.Empty;
+		public int level { get; set; } = 0;
+		public double position_x { get; set; } = 0.0;
+		public double position_y { get; set; } = 0.0;
 		public async Task<string> Register(string connectionString, string name, string password)
 		{
 			try
@@ -37,7 +40,7 @@ namespace App
 			}
 		}
 
-		public async Task<string?> Login(string connectionString, string name, string password)
+		public async Task<bool> Login(string connectionString, string name, string password)
 		{
 			try
 			{
@@ -46,7 +49,7 @@ namespace App
 					await connection.OpenAsync();
 
 					var command = new NpgsqlCommand(@"
-						SELECT name, password FROM Player WHERE name = @name
+						SELECT name, level, position_x, position_y, password FROM Player WHERE name = @name
 					", connection);
 
 					command.Parameters.AddWithValue("@name", name);
@@ -55,22 +58,28 @@ namespace App
 
 					if (await reader.ReadAsync())
 					{
-						var storedPassword = reader.GetString(1);
+						var storedPassword = reader.GetString(4);
 
 						if (BCrypt.Net.BCrypt.Verify(password, storedPassword))
 						{
 							var token = Guid.NewGuid();
+
 							this.access_token = token.ToString();
-							return token.ToString();
+
+							this.level = reader.GetInt32(1);
+							this.position_x = reader.GetDouble(3);
+							this.position_y = reader.GetDouble(3);
+
+							return true;
 						}
 					}
 				}
-				return null;
+				return false;
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine($"Error during login: {ex.Message}");
-				return null;
+				return false;
 			}
 		}
 

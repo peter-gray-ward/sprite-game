@@ -82,12 +82,12 @@ app.MapPost("/login", async context =>
     {
         Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
         Player player = new Player();
-        string token = await player.Login(connectionString, credentials["name"], credentials["password"]);
+        await player.Login(connectionString, credentials["name"], credentials["password"]);
 
-        if (token != null)
+        if (player.access_token != String.Empty)
         {
             
-            context.Session.SetString("access_token", token);
+            context.Session.SetString("access_token", player.access_token);
             context.Session.SetString("name", credentials["name"]);
 
             context.Response.Cookies.Append("name", credentials["name"], new CookieOptions
@@ -97,7 +97,32 @@ app.MapPost("/login", async context =>
                 SameSite = SameSiteMode.Lax
             });
 
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", access_token = token }));
+            context.Response.Cookies.Append("level", player.level.ToString(), new CookieOptions
+            {
+                HttpOnly = false, // Accessible via JavaScript if needed
+                Secure = false,
+                SameSite = SameSiteMode.Lax
+            });
+
+            context.Response.Cookies.Append("position_x", player.position_x.ToString(), new CookieOptions
+            {
+                HttpOnly = false, // Accessible via JavaScript if needed
+                Secure = false,
+                SameSite = SameSiteMode.Lax
+            });
+
+            context.Response.Cookies.Append("position_y", player.position_y.ToString(), new CookieOptions
+            {
+                HttpOnly = false, // Accessible via JavaScript if needed
+                Secure = false,
+                SameSite = SameSiteMode.Lax
+            });
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", 
+                level = player.level,
+                position_x = player.position_x,
+                position_y = player.position_y
+            }));
         }
         else
         {
@@ -320,5 +345,6 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
 	}
 });
+
 
 app.Run();

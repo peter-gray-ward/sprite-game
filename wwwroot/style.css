@@ -226,8 +226,28 @@ a.ui-button:active,
 	background: slategray;
 	color: lawngreen;
 }
+#log p {
+	width: 100%;
+	justify-content: space-around;
+}
 
+#log p, #log p div {
+	display: flex;
+	align-items: center;
+}
 
+#log p div strong {
+	font-family: cursive;
+	margin-right: 0.5rem;
+}
+
+#log p div span {
+	color: blue;
+}
+
+#log-out {
+	margin-right: .5rem !important;
+}
 
 
 
@@ -240,6 +260,9 @@ a.ui-button:active,
 	}
 	.drop-options input {
 		width: 2rem;
+	}
+	#log p div strong {
+		display: none;
 	}
 }
 

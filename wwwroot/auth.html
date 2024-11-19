@@ -144,7 +144,6 @@
 				const res = JSON.parse(this.response);
 				document.querySelector('#login-message').textContent = res.message || "Logged in successfully!";
 				if (res.status === 'success') {
-
 					setTimeout(function() {
 						window.location.href = "/"; // Redirect to home
 					}, 1000);

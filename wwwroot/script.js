@@ -23,6 +23,10 @@ var control = {
   image_urls: {}
 }
 
+var player = {
+
+}
+
 function getCookieValue(cookieName) {
   const cookies = document.cookie.split(';'); // Split all cookies into an array
   for (let cookie of cookies) {
@@ -242,7 +246,14 @@ function SelectTag(event) {
 
 $( function() {
   console.log('starting...')
-  document.querySelector("#log p").innerHTML = getCookieValue("name");
+  player = {
+    name: getCookieValue("name"),
+    level: getCookieValue("level"),
+    position_x: getCookieValue("position_x"),
+    position_y: getCookieValue("position_y")
+  }
+
+  document.querySelector("#log p").innerHTML = Object.keys(player).map(key => `<div><strong>${key}:</strong> <span>${player[key]}</span></div>`).join('')
 
   var view = document.getElementById('view')
   for (var i = 0; i < 400; i++) {
