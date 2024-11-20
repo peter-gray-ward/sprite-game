@@ -25,10 +25,8 @@ namespace App
 						end_x INT NOT NULL,
 						level_id INT NOT NULL,
 						image_id UUID,
-						background_size TEXT,
-						background_repeat TEXT,
-						translateX INT,
-						translateY INT
+						css TEXT,
+						dimension INT
 					);
 
 					DROP TABLE IF EXISTS Player;

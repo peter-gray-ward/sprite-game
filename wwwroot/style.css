@@ -29,7 +29,7 @@ main {
 	width: 5%;
 	height: 5%;
 	margin: 0;
-	border: 1px dotted white;
+	border: 1px dotted rgba(255, 255, 255, 0.3);
 	z-index: 0;
 }
 
@@ -254,6 +254,77 @@ a.ui-button:active,
 	position: absolute;
 }
 
+.block:hover {
+	border: 2px dotted yellow;
+}
+
+.block.editing {
+	border: 5px dotted red;
+}
+
+#edit-blocks {
+	background: aliceblue;
+	width: 100%;
+	height: calc(100vh - 10vh);
+	display: flex;
+	flex-wrap: wrap;
+}
+
+#edit-block-css {
+	width: 50%;
+	height: 50%;
+	margin: 0;
+}
+#block-css {
+	width: 100%;
+	height: 90%;
+	background: black;
+	color: white;
+	font-family: Andale Mono;
+	cursor: text;
+	margin: 0;
+	font-size: 1rem;
+	border: 2px solid lawngreen;
+	overflow: auto;
+}
+
+#block-css.invalid {
+	border: 2px solid red;
+}
+
+#block-css:active, #block-css:focus-visible {
+	outline: none;
+}
+
+#edit-block-css-control {
+	width: 100%;
+	height: 10%;
+	background: black;
+	display: flex;
+	align-items: end;
+	justify-content: start;
+	padding: 0.15rem;
+}
+
+#block-image-edit-area {
+	width: 50%;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0;
+	background: black;
+}
+
+#block-image-edit-area .object-area-preview {
+	background: rgba(0, 0, 0, 0.5);
+	border: 0.5px solid white;
+	box-sizing: border-box;
+	margin: 0.15rem;
+	width: calc(100% / 7 - .3rem);
+}
+
+#block-image-edit-area .object-area-preview:hover {
+	background: rgba(0, 0, 255, 0.5);
+}
 
 
 @media (max-width: 1093px) {

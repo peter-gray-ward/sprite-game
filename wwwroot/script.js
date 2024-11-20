@@ -3,7 +3,13 @@ var events = {
   '#search-pixabay:click': SearchPixabay,
   '#pixabay-results:scroll': ScrollPixabayResults,
   '.pixabay-result:dblclick': SaveImage,
-  '#image-browse-select:change': SelectTag
+  '#image-browse-select:change': SelectTag,
+  '.block:click': ClickBlock,
+  '.object-area-preview:mousedown': ObjectAreaPreviewMousedown,
+  '.object-area-preview:mousemove': ObjectAreaPreviewMousemove,
+  '.object-area-preview:mouseup': ObjectAreaPreviewMouseup,
+  '#block-css:keyup': ValidateBlockCSS,
+  '#apply-block-css:click': ApplyBlockCSS
 }
 
 Array.prototype.contains = function(str) {
@@ -16,11 +22,13 @@ Array.prototype.contains = function(str) {
 }
 
 var view = {
-  dimension: 20
+  dimension: 20,
+  blocks: {}
 }
 
 var control = {
-  image_urls: {}
+  image_urls: {},
+  selection_box: []
 }
 
 var player = {
@@ -51,11 +59,19 @@ function Logout() {
   xhr.send()
 } 
 
-function AddEvents(selector, element) {
+function AddEvents(selector) {
   for (var key in events) {
     var split_key = key.split(':')
-    if (split_key[0] == selector) {
+    if (selector) {
+      if (split_key[0] == selector) {
+        document.querySelectorAll(split_key[0]).forEach(element => {
+          element.removeEventListener(split_key[1], events[key])
+          element.addEventListener(split_key[1], events[key])
+        })
+      }
+    } else {
       document.querySelectorAll(split_key[0]).forEach(element => {
+        element.removeEventListener(split_key[1], events[key])
         element.addEventListener(split_key[1], events[key])
       })
     }
@@ -252,10 +268,12 @@ function SaveBlocks(drop_blocks) {
 function CreateAndAddBlock(block) {
   var div = document.createElement("div");
   div.classList.add('block');
-  div.style.background = `url(/get-image/${block.image_id})`;
-  div.style.backgroundSize = block.background_size;
-  div.style.backgroundRepeat = block.background_repeat;
-  div.style.transform = `translateX(${block.translate_x}px) translateY(${block.translate_y}px) scale(${block.scale})`;
+  
+
+  var css = JSON.parse(block.css)
+  css.backgroundImage = `url(/get-image/${block.image_id})`
+  $(div).css(css)
+
   var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
   var endTile = document.getElementById(`tile_${block.end_y}-${block.end_x}`);
   var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
@@ -264,10 +282,18 @@ function CreateAndAddBlock(block) {
   div.style.height = tileHeight + 'px'
   div.style.top = startTile.offsetTop + 'px'
   div.style.left = startTile.offsetLeft + 'px'
+  div.id = block.id
   document.getElementById('view').appendChild(div)
+  view.blocks[block.id] = {
+    block,
+    div
+  }
 }
 
+
+
 function GetBlocks() {
+  view.blocks = {}
   document.querySelectorAll('.block', function(elem) {
     element.remove()
   })
@@ -279,6 +305,7 @@ function GetBlocks() {
       for (var block of res.data) {
         CreateAndAddBlock(block)
       }
+      AddEvents()
     }
   })
   xhr.send()
@@ -289,6 +316,8 @@ function LoadView() {
     elem.remove()
   })
   GetBlocks()
+  $('#block-image-edit-area').css('height', $('#block-image-edit-area').css('width'))
+  $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
 }
 
 function LoadImageIds() {
@@ -330,6 +359,67 @@ function SelectTag(event) {
   }
 }
 
+function ClickBlock(event) {
+  let block = view.blocks[event.srcElement.id]
+  $('.block').removeClass('editing')
+  block.div.classList.add('editing')
+  $('#ui-id-3').click()
+  var css = JSON.parse(block.block.css)
+  css.backgroundImage = `url(/get-image/${block.block.image_id})`
+  $('#block-image-edit-area').css(css)
+  $('#block-css').html(JSON.stringify(JSON.parse(block.block.css), null, 1))
+  ValidateBlockCSS()
+}
+
+function ObjectAreaPreviewMousedown(event) {}
+function ObjectAreaPreviewMousemove(event) {}
+function ObjectAreaPreviewMouseup(event) {}
+
+function isValidJson(jsonString) {
+    try {
+        JSON.parse(jsonString);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+
+function isValidCSS(rules) {
+    const tempElement = document.createElement('div');
+    for (let property in rules) {
+        if (rules.hasOwnProperty(property)) {
+            tempElement.style[property] = rules[property];
+            if (tempElement.style[property] === '') {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
+function ValidateBlockCSS() {
+  var css = $("#block-css").html()
+  if (!isValidJson(css)) {
+    $("#block-css").addClass('invalid')
+  } else if (!isValidCSS(JSON.parse(css))) {
+    $("#block-css").addClass('invalid')
+  } else {
+    $("#block-css").removeClass('invalid')
+  }
+}
+
+function ApplyBlockCSS() {
+  if (!$("#block-css").hasClass('invalid')) {
+    var newCSS = JSON.parse($("#block-css").html());
+    var biea = document.querySelector('#block-image-edit-area')
+    for (var key in newCSS) {
+      biea.style[key] = newCSS[key]
+    }
+  }
+}
+
 $( function() {
   console.log('starting...')
   player = {
@@ -338,8 +428,6 @@ $( function() {
     position_x: getCookieValue("position_x"),
     position_y: getCookieValue("position_y")
   }
-
-  GetBlocks()
 
   document.querySelector("#log p").innerHTML = Object.keys(player).map(key => `<div><strong>${key}:</strong> <span>${player[key]}</span></div>`).join('')
 
@@ -352,10 +440,18 @@ $( function() {
     view.appendChild(tile)
   }
 
+  var biea = document.getElementById('block-image-edit-area')
+  for (var i = 0; i < 49; i++) {
+    var object_area_preview = document.createElement('div')
+    object_area_preview.classList.add('object-area-preview')
+    biea.appendChild(object_area_preview)
+  }
+
+  LoadView()
+
   for (var key in events) {
     var split_key = key.split(':')
     document.querySelectorAll(split_key[0]).forEach(element => {
-      console.log(key[1], element)
       element.addEventListener(split_key[1], events[key])
     })
   }
@@ -377,7 +473,6 @@ $( function() {
   window.addEventListener('resize', function() {
     LoadView();
   })
-
 
 } )
 
