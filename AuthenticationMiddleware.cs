@@ -1,6 +1,3 @@
-using Npgsql;
-using BCrypt.Net;
-
 namespace App
 {
 	public class AuthenticationMiddleware

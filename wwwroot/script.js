@@ -126,22 +126,33 @@ function ScrollPixabayResults(event) {
 }
 
 function ParseImageId(element) {
-  return element.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '').split('/').pop()
+  var id = element.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '');
+  if (!/pixabay/.test(id)) {
+    return id.split('/').pop()
+  } else {
+    return id
+  }
 }
 
-function SaveImage(event) {
-  var url = event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '')
+function SaveImage(event, callback) {
+  var url = event ? event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '') : control.pixabay_url
   var xhr = new XMLHttpRequest()
   xhr.open('POST', '/save-image')
   xhr.addEventListener('load', function() {
     var res = JSON.parse(this.response)
     if (res.status == 'success') {
-      $(event.srcElement).addClass('saved')
+      control.image_id = res.id
+      if (event) {
+        $(event.srcElement).addClass('saved')
+      }
+      if (callback) {
+        callback()
+      }
     }
   })
   xhr.send(JSON.stringify({
     url,
-    tag: event.srcElement.dataset.tag
+    tag: event ? event.srcElement.dataset.tag : $("#pixabay-search").val()
   }))
 }
 
@@ -150,7 +161,12 @@ function MakeDraggable(element) {
     start: function(event, ui) {
       $(this).addClass('dragging')
       $('#pixabay-results, #image-browse-results').css('overflow', 'visible')
-      control.image_id = ParseImageId(element)
+      let image_id = ParseImageId(element)
+      if (/pixabay/.test(image_id)) {
+        control.pixabay_url = image_id
+      } else {
+        control.image_id = image_id
+      }
     },
     stop: function(event, ui) {
       $(this).removeClass('dragging')
@@ -166,7 +182,13 @@ function MakeDroppable(element) {
    $(element).droppable({
     drop: function(event, ui) {
       console.log(drop_blocks)
-      SaveBlocks(drop_blocks)
+      if (control.image_id && !control.image_id == "") {
+        SaveBlocks(drop_blocks)
+      } else {
+        SaveImage(null, function() {
+          SaveBlocks(drop_blocks)
+        })
+      }
     },
     over: function(event, ui) {
       $('.tile').removeClass('over')
@@ -195,7 +217,7 @@ function MakeDroppable(element) {
   })
 }
 
-function SaveBlocks(drop_blocks, image_id) {
+function SaveBlocks(drop_blocks) {
   var xhr = new XMLHttpRequest()
   const url = '/save-blocks/' + player.level + '/' + control.image_id
   xhr.open('POST', url)
@@ -263,6 +285,9 @@ function GetBlocks() {
 }
 
 function LoadView() {
+  $('.block').each(function(_, elem) {
+    elem.remove()
+  })
   GetBlocks()
 }
 
@@ -347,4 +372,18 @@ $( function() {
       }
     }
   })
+
+
+  window.addEventListener('resize', function() {
+    LoadView();
+  })
+
+
 } )
+
+
+
+
+
+
+

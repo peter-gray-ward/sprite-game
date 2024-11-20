@@ -212,7 +212,7 @@ app.MapPost("/save-image", async context =>
         using (var connection = new NpgsqlConnection(connectionString))
         {
             await connection.OpenAsync();
-            var command = new NpgsqlCommand("INSERT INTO public.images (id, tag, src, user_name) VALUES (@id, @tag, @src, @username)", connection);
+            var command = new NpgsqlCommand("INSERT INTO public.images (id, tag, src, user_name) VALUES (@id, @tag, @src, @user_name)", connection);
             command.Parameters.AddWithValue("id", imageId);
             command.Parameters.AddWithValue("tag", tag);
             command.Parameters.AddWithValue("src", imageData);
