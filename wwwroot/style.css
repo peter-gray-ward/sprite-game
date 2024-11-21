@@ -221,14 +221,17 @@ a.ui-button:active,
 	font-family: Andale Mono;
 }
 
-#log button {
+#log button.button {
 	border: none;
 	background: slategray;
 	color: lawngreen;
+	width: 10%;
+	font-size: 1vw;
 }
 #log p {
 	width: 100%;
 	justify-content: space-around;
+	margin: 0;
 }
 
 #log p, #log p div {
@@ -272,12 +275,12 @@ a.ui-button:active,
 
 #edit-block-css {
 	width: 50%;
-	height: 50%;
+	height: 100%;
 	margin: 0;
 }
 #block-css {
 	width: 100%;
-	height: 90%;
+	height: 70%;
 	background: black;
 	color: white;
 	font-family: Andale Mono;
@@ -298,9 +301,8 @@ a.ui-button:active,
 
 #edit-block-css-control {
 	width: 100%;
-	height: 10%;
-	background: black;
-	display: flex;
+	height: 30%;
+	background: slategray;
 	align-items: end;
 	justify-content: start;
 	padding: 0.15rem;

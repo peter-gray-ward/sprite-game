@@ -354,7 +354,7 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 	}
 });
 
-app.MapPut("/update-block-style/{recurrence_id}", async context =>
+app.MapPost("/update-block-style/{recurrence_id}", async context =>
 {
     string username = context.Session.GetString("name");
     try

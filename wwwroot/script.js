@@ -175,7 +175,12 @@ function SaveImage(event, callback) {
   var xhr = new XMLHttpRequest()
   xhr.open('POST', '/save-image')
   xhr.addEventListener('load', function() {
-    var res = JSON.parse(this.response)
+    let res
+    try {
+      res = JSON.parse(this.response)
+    } catch (err) {
+      window.location.reload()
+    }
     if (res.status == 'success') {
       control.image_id = res.id
       if (event) {
@@ -258,7 +263,12 @@ function SaveBlocks(drop_blocks) {
   const url = '/save-blocks/' + player.level + '/' + control.image_id
   xhr.open('POST', url)
   xhr.addEventListener('load', function() {
-    var res = JSON.parse(this.response)
+    let res
+    try {
+      res = JSON.parse(this.response)
+    } catch (err) {
+      window.location.reload()
+    }
     if (res.status == 'success') {
       LoadView()
     }
@@ -302,7 +312,12 @@ function GetBlocks() {
   var xhr = new XMLHttpRequest();
   xhr.open("GET", '/get-blocks/' + player.level);
   xhr.addEventListener("load", function() {
-    var res = JSON.parse(this.response)
+    let res
+    try {
+      res = JSON.parse(this.response)
+    } catch (err) {
+      window.location.reload()
+    }
     if (res.status == 'success') {
       for (var block of res.data) {
         CreateAndAddBlock(block)
@@ -329,7 +344,12 @@ function LoadImageIds() {
   var xhr = new XMLHttpRequest()
   xhr.open('GET', '/get-image-ids')
   xhr.addEventListener('load', function() {
-    var res = JSON.parse(this.response)
+    let res
+    try {
+      res = JSON.parse(this.response)
+    } catch (err) {
+      window.location.reload()
+    }
     if (res.status == 'success') {
       var imageBrowseSelect = document.getElementById('image-browse-select')
       imageBrowseSelect.innerHTML = '<option>select tag</option>'
@@ -372,6 +392,7 @@ function ClickBlock(event) {
   $('#ui-id-3').click()
   var css = JSON.parse(block.block.css)
   css.backgroundImage = `url(/get-image/${block.block.image_id})`
+  css.transform = css.transform.replace(/scale\(+.\)/, '')
   $('#block-image').css(css)
   $('#block-css').html(JSON.stringify(JSON.parse(block.block.css), null, 1))
   ValidateBlockCSS()
@@ -437,9 +458,14 @@ function ApplyBlockCSS() {
 
 function UpdateBlockStyle() {
   var xhr = new XMLHttpRequest()
-  xhr.open('PUT', `/update-block-style/${control.block.block.recurrence_id}`)
+  xhr.open('POST', `/update-block-style/${control.block.block.recurrence_id}`)
   xhr.addEventListener('load', function() {
-    var res = JSON.parse(this.response)
+    let res
+    try {
+      res = JSON.parse(this.response)
+    } catch (err) {
+      window.reload();
+    }
     if (res.status == 'success') {
       LoadView()
     }
