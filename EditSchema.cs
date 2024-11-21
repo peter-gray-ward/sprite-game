@@ -18,6 +18,7 @@ namespace App
 					DROP TABLE IF EXISTS Block;
 					CREATE TABLE Block (
 						id UUID PRIMARY KEY,
+						recurrence_id UUID,
 						user_name TEXT NOT NULL,
 						start_y INT NOT NULL,
 						start_x INT NOT NULL,

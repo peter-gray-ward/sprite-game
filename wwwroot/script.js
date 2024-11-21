@@ -317,7 +317,10 @@ function LoadView() {
   })
   GetBlocks()
   $('#block-image-edit-area').css('height', $('#block-image-edit-area').css('width'))
+  $('.object-area').css('height', $(".object-area").css('width'))
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
+  $('#block-image').css('height', $("#block-image-edit-area").css('width'))
+  $('#block-image').css('width', $("#block-image-edit-area").css('width'))
 }
 
 function LoadImageIds() {
@@ -366,9 +369,10 @@ function ClickBlock(event) {
   $('#ui-id-3').click()
   var css = JSON.parse(block.block.css)
   css.backgroundImage = `url(/get-image/${block.block.image_id})`
-  $('#block-image-edit-area').css(css)
+  $('#block-image').css(css)
   $('#block-css').html(JSON.stringify(JSON.parse(block.block.css), null, 1))
   ValidateBlockCSS()
+  $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
 }
 
 function ObjectAreaPreviewMousedown(event) {}
@@ -400,7 +404,8 @@ function isValidCSS(rules) {
 
 
 function ValidateBlockCSS() {
-  var css = $("#block-css").html()
+  var css = $("#block-css").val()
+  console.log('css', css)
   if (!isValidJson(css)) {
     $("#block-css").addClass('invalid')
   } else if (!isValidCSS(JSON.parse(css))) {
@@ -412,8 +417,8 @@ function ValidateBlockCSS() {
 
 function ApplyBlockCSS() {
   if (!$("#block-css").hasClass('invalid')) {
-    var newCSS = JSON.parse($("#block-css").html());
-    var biea = document.querySelector('#block-image-edit-area')
+    var newCSS = JSON.parse($("#block-css").val());
+    var biea = document.querySelector('#block-image')
     for (var key in newCSS) {
       biea.style[key] = newCSS[key]
     }

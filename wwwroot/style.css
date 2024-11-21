@@ -314,6 +314,12 @@ a.ui-button:active,
 	background: black;
 }
 
+#block-image {
+	position: absolute;
+    /* top: 3vw; */
+    z-index: 1;
+}
+
 #block-image-edit-area .object-area-preview {
 	background: rgba(0, 0, 0, 0.5);
 	border: 0.5px solid white;
@@ -324,6 +330,10 @@ a.ui-button:active,
 
 #block-image-edit-area .object-area-preview:hover {
 	background: rgba(0, 0, 255, 0.5);
+}
+
+.object-area-preview {
+	z-index: 2;
 }
 
 
