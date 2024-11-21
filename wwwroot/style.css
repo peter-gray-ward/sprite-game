@@ -317,6 +317,9 @@ a.ui-button:active,
 #block-image {
 	position: absolute;
     /* top: 3vw; */
+    height: calc(50vh - 5vh);
+    width: 57%;
+    left: 50%;
     z-index: 1;
 }
 

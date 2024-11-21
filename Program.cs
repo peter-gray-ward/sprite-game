@@ -321,13 +321,14 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 		{
 			await connection.OpenAsync();
             string message = "";
+            var recurrence_id = Guid.NewGuid();
 			foreach (Dictionary<string, List<int>> block in drop_block_ids)
 			{
 				var command = new NpgsqlCommand(@$"
 					INSERT INTO public.Block
-					(id, user_name, level_id, image_id, start_x, start_y, end_x, end_y, dimension)
+					(id, user_name, level_id, image_id, start_x, start_y, end_x, end_y, dimension, recurrence_id)
 					VALUES
-					(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y, @dimension)
+					(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y, @dimension, @recurrence_id)
 				", connection);
 				command.Parameters.AddWithValue("id", Guid.NewGuid());
                 command.Parameters.AddWithValue("user_name", user_name);
@@ -338,6 +339,7 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 				command.Parameters.AddWithValue("end_y", block["end"][0]);
 				command.Parameters.AddWithValue("end_x", block["end"][1]);
                 command.Parameters.AddWithValue("dimension", block["dimension"][0]);
+                command.Parameters.AddWithValue("recurrence_id", recurrence_id);
 				await command.ExecuteNonQueryAsync();
                 message += $"Saved block {block["start"][0]}, {block["start"][1]}\n";
 			}
@@ -350,6 +352,39 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 		context.Response.StatusCode = 500;
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
 	}
+});
+
+app.MapPut("/update-block-style/{recurrence_id}", async context =>
+{
+    string username = context.Session.GetString("name");
+    try
+    {
+        string recurrence_id = context.Request.RouteValues["recurrence_id"].ToString();
+        var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+        Dictionary<string, JsonElement> block = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body);
+        using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            var command = new NpgsqlCommand(@$"
+                UPDATE public.Block
+                SET
+                    dimension = @dimension,
+                    css = @css
+                WHERE recurrence_id = @recurrence_id
+            ", connection);
+            command.Parameters.AddWithValue("recurrence_id", Guid.Parse(recurrence_id));
+            command.Parameters.AddWithValue("dimension", block["dimension"].GetInt32());
+            command.Parameters.AddWithValue("css", block["css"].GetString());
+            await command.ExecuteNonQueryAsync();
+            context.Response.StatusCode = 200;
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success" }));
+        }
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = ex.Message }));
+    }
 });
 
 app.MapGet("/get-blocks/{level_id}", async context =>
@@ -381,24 +416,15 @@ app.MapGet("/get-blocks/{level_id}", async context =>
             {
                 Dictionary<string, object> block = new Dictionary<string, object>();
                 
-                // Check and print all fields available
                 for (int i = 0; i < reader.FieldCount; i++)
                 {
                     string fieldName = reader.GetName(i);
                     object fieldValue = reader[fieldName];
-
-                    // Print field name and its value
-                    Console.WriteLine($"Found field: {fieldName} = {fieldValue}");
-
-                    // Add to block dictionary
                     block[fieldName] = fieldValue;
                 }
 
-                // Add block to the list
                 blocks.Add(block);
             }
-
-            Console.WriteLine($"found {blocks.Count} blocks");
 
             await reader.CloseAsync();
 

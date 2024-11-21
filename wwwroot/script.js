@@ -21,6 +21,26 @@ Array.prototype.contains = function(str) {
   return false
 }
 
+function include(obj, inclusions) {
+  var result = {}
+  for (var key in obj) {
+    if (inclusions.contains(key)) {
+      result[key] = obj[key]
+    }
+  }
+  return result
+}
+
+function omit(obj, omissions) {
+  var result = {}
+  for (var key in obj) {
+    if (!omissions.contains(key)) {
+      result[key] = obj[key]
+    }
+  }
+  return result
+}
+
 var view = {
   dimension: 20,
   blocks: {}
@@ -247,24 +267,6 @@ function SaveBlocks(drop_blocks) {
   xhr.send(JSON.stringify(drop_blocks))
 }
 
-/**
- * 
-  "id": "90dd3c12-7dff-40e4-be7b-fc39926daeb3",
-  "user_name": "peter",
-  "start_y": 3,
-  "start_x": 14,
-  "end_y": 3,
-  "end_x": 14,
-  "level_id": 1,
-  "image_id": "d5cb7c95-3db7-40a5-a3e2-55d77dfadf42",
-  "background_size": "contain",
-  "background_repeat": "no-repeat",
-  "translate_x": 0,
-  "translate_y": 0,
-  "scale": 1,
-  "dimension": 1
-  *
-  */
 function CreateAndAddBlock(block) {
   var div = document.createElement("div");
   div.classList.add('block');
@@ -283,13 +285,13 @@ function CreateAndAddBlock(block) {
   div.style.top = startTile.offsetTop + 'px'
   div.style.left = startTile.offsetLeft + 'px'
   div.id = block.id
+  div.dataset.recurrence_id = block.recurrence_id;
   document.getElementById('view').appendChild(div)
   view.blocks[block.id] = {
     block,
     div
   }
 }
-
 
 
 function GetBlocks() {
@@ -364,6 +366,7 @@ function SelectTag(event) {
 
 function ClickBlock(event) {
   let block = view.blocks[event.srcElement.id]
+  control.block = block
   $('.block').removeClass('editing')
   block.div.classList.add('editing')
   $('#ui-id-3').click()
@@ -405,7 +408,6 @@ function isValidCSS(rules) {
 
 function ValidateBlockCSS() {
   var css = $("#block-css").val()
-  console.log('css', css)
   if (!isValidJson(css)) {
     $("#block-css").addClass('invalid')
   } else if (!isValidCSS(JSON.parse(css))) {
@@ -420,9 +422,33 @@ function ApplyBlockCSS() {
     var newCSS = JSON.parse($("#block-css").val());
     var biea = document.querySelector('#block-image')
     for (var key in newCSS) {
-      biea.style[key] = newCSS[key]
+      if (key == 'transform') {
+        var css = newCSS[key]
+        css = css.replace(/scale(.+)/, '')
+        biea.style[key] = css
+      } else {
+        biea.style[key] = newCSS[key]
+      }
     }
   }
+  control.block.block.css = newCSS
+  UpdateBlockStyle()
+}
+
+function UpdateBlockStyle() {
+  var xhr = new XMLHttpRequest()
+  xhr.open('PUT', `/update-block-style/${control.block.block.recurrence_id}`)
+  xhr.addEventListener('load', function() {
+    var res = JSON.parse(this.response)
+    if (res.status == 'success') {
+      LoadView()
+    }
+  })
+  let payload = control.block.block
+  payload.css = JSON.stringify(payload.css)
+  xhr.send(JSON.stringify(
+    include(payload, ['recurrence_id', 'dimension', 'css'])
+  ))
 }
 
 $( function() {
