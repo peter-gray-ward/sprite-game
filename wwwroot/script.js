@@ -48,7 +48,11 @@ var view = {
 
 var control = {
   image_urls: {},
-  selection_box: []
+  object_area_preview: {
+    active: false,
+    object_area: []
+  },
+  needsUpdate: true
 }
 
 var player = {
@@ -270,6 +274,7 @@ function SaveBlocks(drop_blocks) {
       window.location.reload()
     }
     if (res.status == 'success') {
+      control.needsUpdate = true
       LoadView()
     }
     control.image_id = ''
@@ -319,25 +324,37 @@ function GetBlocks() {
       window.location.reload()
     }
     if (res.status == 'success') {
-      for (var block of res.data) {
-        CreateAndAddBlock(block)
-      }
-      AddEvents()
+      control.needsUpdate = false
+      control.blocks = res.data.map(block => {
+        block.object_area = JSON.parse(block.object_area)
+        return block
+      })
+      RenderBlocks()
     }
   })
   xhr.send()
+}
+
+function RenderBlocks() {
+  for (var block of control.blocks) {
+    CreateAndAddBlock(block)
+  }
+  AddEvents()
 }
 
 function LoadView() {
   $('.block').each(function(_, elem) {
     elem.remove()
   })
-  GetBlocks()
-  $('#block-image-edit-area').css('height', $('#block-image-edit-area').css('width'))
+  if (control.needsUpdate) {
+    GetBlocks()
+  } else {
+    RenderBlocks()
+  }
   $('.object-area').css('height', $(".object-area").css('width'))
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
-  $('#block-image').css('height', $("#block-image-edit-area").css('width'))
-  $('#block-image').css('width', $("#block-image-edit-area").css('width'))
+  $('#block-image-container').css('height', $("#block-image-edit-area").css('width'))
+  $('#block-image-container').css('width', $("#block-image-edit-area").css('width'))
 }
 
 function LoadImageIds() {
@@ -397,11 +414,61 @@ function ClickBlock(event) {
   $('#block-css').html(JSON.stringify(JSON.parse(block.block.css), null, 1))
   ValidateBlockCSS()
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
+  $('.object-area-preview.selected').removeClass('selected')
+  for (var b of control.block.block.object_area) {
+    $(`#object-area-${b[0]}_${b[1]}`).addClass('selected')
+  }
 }
 
-function ObjectAreaPreviewMousedown(event) {}
-function ObjectAreaPreviewMousemove(event) {}
-function ObjectAreaPreviewMouseup(event) {}
+function ObjectAreaPreviewMousedown(event) {
+  event.preventDefault()
+  control.object_area_preview.active = true
+  $(event.target).toggleClass('selected')
+}
+function ObjectAreaPreviewMousemove(event) {
+  if (control.object_area_preview.active) {
+    $(event.target).addClass('selected')
+  }
+}
+function ObjectAreaPreviewMouseup(event) {
+  control.object_area_preview.object_area = []
+  setTimeout(function() {
+    $(event.target.parentElement).find('.selected').each(function(_, elem) {
+      var id = $(elem)[0].id
+      id = id.replace('object-area-', '').split('_').map(Number)
+      control.object_area_preview.object_area.push(id)
+    })
+    UpdateBlock()
+    control.object_area_preview.active = false
+    control.needsUpdate = true
+  }, 0)
+}
+
+function UpdateBlock() {
+  var xhr = new XMLHttpRequest()
+  xhr.open('POST', `/update-block-object-area/${control.block.block.recurrence_id}`)
+  xhr.addEventListener('load', function() {
+    var res = JSON.parse(this.response)
+    console.log(res)
+    if (res.status == 'success') {
+      var newObjectArea = JSON.parse(res.data)
+      for (var block of control.blocks) {
+        if (block.recurrence_id == control.block.block.recurrence_id) {
+          block.object_area = newObjectArea
+        }
+      }
+      for (var id in view.blocks) {
+        if (view.blocks[id].block.recurrence_id == control.block.block.recurrence_id) {
+          view.blocks[id].block.object_area = newObjectArea
+        }
+      }
+      LoadView()
+    }
+  })
+  xhr.send(JSON.stringify({
+    object_area: JSON.stringify(control.object_area_preview.object_area)
+  }))
+}
 
 function isValidJson(jsonString) {
     try {
@@ -501,6 +568,7 @@ $( function() {
   for (var i = 0; i < 49; i++) {
     var object_area_preview = document.createElement('div')
     object_area_preview.classList.add('object-area-preview')
+    object_area_preview.id = `object-area-${Math.floor(i / 7)}_${i % 7}`
     biea.appendChild(object_area_preview)
   }
 

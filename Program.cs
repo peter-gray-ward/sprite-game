@@ -387,6 +387,36 @@ app.MapPost("/update-block-style/{recurrence_id}", async context =>
     }
 });
 
+app.MapPost("/update-block-object-area/{recurrence_id}", async context => {
+    string username = context.Session.GetString("name");
+    try
+    {
+        string recurrence_id = context.Request.RouteValues["recurrence_id"].ToString();
+        var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+        Dictionary<string, JsonElement> block = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body);
+        using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            var command = new NpgsqlCommand(@$"
+                UPDATE public.Block
+                SET
+                    object_area = @object_area
+                WHERE recurrence_id = @recurrence_id
+            ", connection);
+            command.Parameters.AddWithValue("recurrence_id", Guid.Parse(recurrence_id));
+            command.Parameters.AddWithValue("object_area", block["object_area"].GetString());
+            await command.ExecuteNonQueryAsync();
+            context.Response.StatusCode = 200;
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", data = block["object_area"].GetString()}));
+        }
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = ex.Message }));
+    }
+});
+
 app.MapGet("/get-blocks/{level_id}", async context =>
 {
     string username = context.Session.GetString("name");

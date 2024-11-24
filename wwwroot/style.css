@@ -270,17 +270,33 @@ a.ui-button:active,
 	width: 100%;
 	height: calc(100vh - 10vh);
 	display: flex;
+	flex-direction: row;
 	flex-wrap: wrap;
 }
 
-#edit-block-css {
-	width: 50%;
+#edit-blocks section {
 	height: 100%;
+	width: 50%;
+	display: flex;
+	flex-direction: column;
+}
+
+#edit-block-css {
+	width: 100%;
+	flex-grow: 1;
 	margin: 0;
 }
+
+#edit-block-css button {
+	position: absolute;
+	left: calc(100% - 4rem);
+	height: 2rem;
+	top: calc(100% - 1rem - 5vh);
+}
+
 #block-css {
 	width: 100%;
-	height: 70%;
+	height: 100%;
 	background: black;
 	color: white;
 	font-family: Andale Mono;
@@ -309,24 +325,30 @@ a.ui-button:active,
 }
 
 #block-image-edit-area {
-	width: 50%;
+	width: 100%;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0;
 	background: black;
 }
 
-#block-image {
+#block-image-container {
 	position: absolute;
     /* top: 3vw; */
     height: calc(50vh - 5vh);
     width: 57%;
     left: 50%;
     z-index: 1;
+    overflow: hidden;
+}
+
+#block-image {
+	width: 100%;
+	height: 100%;
 }
 
 #block-image-edit-area .object-area-preview {
-	background: rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.15);
 	border: 0.5px solid white;
 	box-sizing: border-box;
 	margin: 0.15rem;
@@ -334,6 +356,10 @@ a.ui-button:active,
 }
 
 #block-image-edit-area .object-area-preview:hover {
+	background: rgba(0, 0, 100, 0.1);
+} 
+
+#block-image-edit-area .object-area-preview.selected {
 	background: rgba(0, 0, 255, 0.5);
 }
 

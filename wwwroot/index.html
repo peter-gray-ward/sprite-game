@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="jquery-ui/jquery-ui.min.css">
-    <link rel="stylesheet" href="jquery-ui/jquery-ui.structure.min.css">
-    <link rel="stylesheet" href="jquery-ui/jquery-ui.theme.min.css">
+    <link rel="stylesheet" href="lib/jquery-ui/jquery-ui.min.css">
+    <link rel="stylesheet" href="lib/jquery-ui/jquery-ui.structure.min.css">
+    <link rel="stylesheet" href="lib/jquery-ui/jquery-ui.theme.min.css">
 </head>
 <body>
     <main>
@@ -47,18 +47,23 @@
                         <div id="image-browse-results"></div>
                     </div>
                     <div id="edit-blocks">
-                        <div id="edit-block-css">
-                            <textarea id="block-css"></textarea>
-                            <div id="edit-block-css-control">
+                        <section>
+                            
+                            <div id="block-type-edit">
+
+                            </div>
+                        </section>
+                        <section>
+                            <div id="block-image-edit-area">
+                                <div id="block-image-container">
+                                    <div id="block-image"></div>
+                                </div>
+                            </div>
+                            <div id="edit-block-css">
+                                <textarea id="block-css"></textarea>
                                 <button id="apply-block-css" class="button">Apply</button>
                             </div>
-                        </div>
-                        <div id="block-image-edit-area">
-                            <div id="block-image"></div>
-                        </div>
-                        <div id="block-type-edit">
-
-                        </div>
+                        </section>
                     </div>
                 </div>
             </div>

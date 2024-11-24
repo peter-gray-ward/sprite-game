@@ -27,7 +27,8 @@ namespace App
 						level_id INT NOT NULL,
 						image_id UUID,
 						css TEXT,
-						dimension INT
+						dimension INT,
+						object_area TEXT
 					);
 
 					DROP TABLE IF EXISTS Player;
