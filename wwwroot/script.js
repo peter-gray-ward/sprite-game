@@ -373,7 +373,7 @@ function CreateAndAddBlockArea(block, top, left, width, height) {
   var segment = (width * transform.scale) / 7
   var view = document.getElementById('view')
   for (var object_area of block.object_area) {
-    var objectAreaId = `object-area-${block.recurrence_id}-${object_area[0]}_${object_area[1]}`;
+    var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}`;
     if (document.getElementById(objectAreaId)) {
       document.getElementById(objectAreaId).remove()
     }
@@ -381,14 +381,14 @@ function CreateAndAddBlockArea(block, top, left, width, height) {
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
 
-    var widthOffset = transform.translateX
-    var heightOffset = transform.translateY
+    let topOffset = segment * object_area[0] + transform.translateY
+    let leftOffset = segment * object_area[1] + transform.translateX
 
     $(objectArea).css({
       width: segment + 'px',
       height: segment + 'px',
-      top: (top + (segment * object_area[0])) + heightOffset + 'px',
-      left: (left + (segment * object_area[1])) + widthOffset + 'px'
+      top: top + topOffset + 'px',
+      left: left + leftOffset + 'px'
     });
 
 

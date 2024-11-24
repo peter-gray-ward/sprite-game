@@ -370,6 +370,7 @@ a.ui-button:active,
 .object-area {
 	position: absolute;
 	z-index: 999;
+	margin: 1px;
 	background: rgba(255, 0, 0, 0.333);
 }
 
