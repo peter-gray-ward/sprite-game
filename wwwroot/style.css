@@ -335,7 +335,7 @@ a.ui-button:active,
 #block-image-container {
 	position: absolute;
     /* top: 3vw; */
-    height: calc(50vh - 5vh);
+    height: calc(50vh - 5vh) !important;
     width: 57%;
     left: 50%;
     z-index: 1;
@@ -367,6 +367,29 @@ a.ui-button:active,
 	z-index: 2;
 }
 
+.object-area {
+	position: absolute;
+	z-index: 999;
+	background: rgba(255, 0, 0, 0.333);
+}
+
+#block-type-edit > div {
+	display: flex;
+    justify-content: space-around;
+}
+
+#view-options {
+	position: absolute;
+	background: rgba(0,0,0,0.05);
+	left: 1vw;
+	top: 1vh;
+}
+
+#view-options * {
+	background: transparent;
+	border: none;
+	color: white;
+}
 
 @media (max-width: 1093px) {
 	.ui-tabs .ui-tabs-nav .ui-tabs-anchor {

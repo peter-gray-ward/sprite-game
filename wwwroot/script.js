@@ -43,7 +43,8 @@ function omit(obj, omissions) {
 
 var view = {
   dimension: 20,
-  blocks: {}
+  blocks: {},
+  view_block_areas: true
 }
 
 var control = {
@@ -71,7 +72,6 @@ function getCookieValue(cookieName) {
 }
 
 function Logout() {
-  console.log('logging out')
   var xhr = new XMLHttpRequest()
   xhr.open('POST', '/logout')
   xhr.addEventListener('load', function() {
@@ -282,12 +282,26 @@ function SaveBlocks(drop_blocks) {
   xhr.send(JSON.stringify(drop_blocks))
 }
 
+function GetBlockDimensions(block) {
+  var css = block.css instanceof Object ? block.css : JSON.parse(block.css)
+  var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
+  var endTile = document.getElementById(`tile_${block.end_y}-${block.end_x}`);
+  var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
+  var tileHeight = tileWidth
+  return {
+    top: startTile.offsetTop,
+    left: startTile.offsetLeft,
+    width: tileWidth,
+    height: tileHeight
+  }
+}
+
 function CreateAndAddBlock(block) {
   var div = document.createElement("div");
   div.classList.add('block');
   
 
-  var css = JSON.parse(block.css)
+  var css = block.css instanceof Object ? block.css : JSON.parse(block.css)
   css.backgroundImage = `url(/get-image/${block.image_id})`
   $(div).css(css)
 
@@ -301,10 +315,16 @@ function CreateAndAddBlock(block) {
   div.style.left = startTile.offsetLeft + 'px'
   div.id = block.id
   div.dataset.recurrence_id = block.recurrence_id;
+
   document.getElementById('view').appendChild(div)
+
   view.blocks[block.id] = {
     block,
     div
+  }
+
+  if (view.view_block_areas && block.object_area.length) {
+    CreateAndAddBlockArea(block, startTile.offsetTop, startTile.offsetLeft, tileWidth, tileHeight)
   }
 }
 
@@ -335,10 +355,53 @@ function GetBlocks() {
   xhr.send()
 }
 
+function CreateAndAddBlockArea(block, top, left, width, height) {
+  var _transform = JSON.parse(block.css).transform;
+  var transform = {
+    scale: 1,
+    translateX: 0,
+    translateY: 0
+  };
+
+  var regex = /([a-zA-Z]+)\((-?\d+(\.\d+)?(px|deg|%)?)\)/g;
+  var match;
+  var unitRegex = /[a-zA-Z%]+/g;
+
+  while ((match = regex.exec(_transform)) !== null) {
+    transform[match[1]] = +match[2].replace(unitRegex, '');
+  }
+  var segment = (width * transform.scale) / 7
+  var view = document.getElementById('view')
+  for (var object_area of block.object_area) {
+    var objectAreaId = `object-area-${block.recurrence_id}-${object_area[0]}_${object_area[1]}`;
+    if (document.getElementById(objectAreaId)) {
+      document.getElementById(objectAreaId).remove()
+    }
+    var objectArea = document.createElement('div');
+    objectArea.classList.add('object-area');
+    objectArea.id = objectAreaId;
+
+    var widthOffset = transform.translateX
+    var heightOffset = transform.translateY
+
+    $(objectArea).css({
+      width: segment + 'px',
+      height: segment + 'px',
+      top: (top + (segment * object_area[0])) + heightOffset + 'px',
+      left: (left + (segment * object_area[1])) + widthOffset + 'px'
+    });
+
+
+    view.appendChild(objectArea);
+  }
+}
+
 function RenderBlocks() {
+  $('.object-area').remove()
   for (var block of control.blocks) {
     CreateAndAddBlock(block)
   }
+  AdjustEditBlockImage()
   AddEvents()
 }
 
@@ -354,7 +417,6 @@ function LoadView() {
   $('.object-area').css('height', $(".object-area").css('width'))
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('#block-image-container').css('height', $("#block-image-edit-area").css('width'))
-  $('#block-image-container').css('width', $("#block-image-edit-area").css('width'))
 }
 
 function LoadImageIds() {
@@ -401,9 +463,23 @@ function SelectTag(event) {
   }
 }
 
+function AdjustEditBlockImage() {
+  var biea = document.getElementById('block-image-edit-area')
+  var width = +getComputedStyle(biea).width.split('px')[0]
+  var height = +getComputedStyle(biea).height.split('px')[0]
+
+  $('#block-image-container, #block-image').css({
+    width: width + 'px',
+    height: height + 'px'
+  })
+}
+
 function ClickBlock(event) {
   let block = view.blocks[event.srcElement.id]
   control.block = block
+
+  AdjustEditBlockImage()
+
   $('.block').removeClass('editing')
   block.div.classList.add('editing')
   $('#ui-id-3').click()
@@ -412,9 +488,14 @@ function ClickBlock(event) {
   css.transform = css.transform.replace(/scale\(+.\)/, '')
   $('#block-image').css(css)
   $('#block-css').html(JSON.stringify(JSON.parse(block.block.css), null, 1))
+
+  $('#block-type-edit .drop-dimensions input').val(control.block.block.dimension)
+
   ValidateBlockCSS()
+
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('.object-area-preview.selected').removeClass('selected')
+
   for (var b of control.block.block.object_area) {
     $(`#object-area-${b[0]}_${b[1]}`).addClass('selected')
   }
@@ -493,6 +574,20 @@ function isValidCSS(rules) {
     return true;
 }
 
+function UpdateBlockCache(recurrence_id, key, value) {
+  control.block.block[key] = value
+  for (var block of control.blocks) {
+    if (block.recurrence_id == recurrence_id) {
+      block[key] = value
+    }
+  }
+  for (var id in view.blocks) {
+    if (view.blocks[id].block.recurrence_id == recurrence_id) {
+      view.blocks[id].block[key] = value
+    }
+  }
+}
+
 
 function ValidateBlockCSS() {
   var css = $("#block-css").val()
@@ -519,8 +614,15 @@ function ApplyBlockCSS() {
       }
     }
   }
-  control.block.block.css = newCSS
+  UpdateBlockCache(control.block.block.recurrence_id, 'css', newCSS)
+  document.querySelectorAll(`.block[data-recurrence_id="${control.block.block.recurrence_id}"]`).forEach(block => {
+    $(block).css(newCSS)
+  })
   UpdateBlockStyle()
+  if (view.view_block_areas) {
+    const { top, left, width, height } = GetBlockDimensions(control.block.block)
+    CreateAndAddBlockArea(control.block.block, top, left, width, height)
+  }
 }
 
 function UpdateBlockStyle() {
@@ -532,9 +634,6 @@ function UpdateBlockStyle() {
       res = JSON.parse(this.response)
     } catch (err) {
       window.reload();
-    }
-    if (res.status == 'success') {
-      LoadView()
     }
   })
   let payload = control.block.block

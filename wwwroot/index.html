@@ -12,6 +12,10 @@
     <main>
         <section id="view">
         </section>
+        <div id="view-options">
+            <label>View Object Areas</label>
+            <input type="checkbox" name="view-object-areas" id="view-object-areas" checked="true">
+        </div>
         <section id="controls">
             <div id="controller">
                 <div id="tabs">
@@ -48,9 +52,10 @@
                     </div>
                     <div id="edit-blocks">
                         <section>
-                            
                             <div id="block-type-edit">
-
+                                <div class="drop-dimensions">
+                                    <label>dimension</label><input disabled name="width" type="number" class="width" value="1"/>
+                                </div>
                             </div>
                         </section>
                         <section>
