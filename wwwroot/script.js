@@ -355,6 +355,22 @@ function GetBlocks() {
   xhr.send()
 }
 
+function calculateAbsoluteOffsets(left, top, width, height, scaleX, scaleY, originX = 0, originY = 0) {
+    // Calculate new scaled dimensions
+    const scaledWidth = width * scaleX;
+    const scaledHeight = height * scaleY;
+
+    // Calculate the apparent shift due to scaling
+    const offsetLeft = (scaleX - 1) * width * originX;
+    const offsetTop = (scaleY - 1) * height * originY;
+
+    // Adjust the absolute position
+    const newLeft = left - offsetLeft;
+    const newTop = top - offsetTop;
+
+    return { newLeft, newTop };
+}
+
 function CreateAndAddBlockArea(block, top, left, width, height) {
   var _transform = JSON.parse(block.css).transform;
   var transform = {
@@ -381,14 +397,17 @@ function CreateAndAddBlockArea(block, top, left, width, height) {
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
 
-    let topOffset = segment * object_area[0] + transform.translateY
-    let leftOffset = segment * object_area[1] + transform.translateX
+    // let topOffset = segment * object_area[0] + transform.translateY
+    // let leftOffset = segment * object_area[1] + transform.translateX
+
+    
+    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform.scale, transform.scale, 0.5, 0.5)
 
     $(objectArea).css({
       width: segment + 'px',
       height: segment + 'px',
-      top: top + topOffset + 'px',
-      left: left + leftOffset + 'px'
+      top: newTop + (segment * object_area[0]) + 'px',
+      left: newLeft + (segment * object_area[1]) + 'px'
     });
 
 
