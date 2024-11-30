@@ -285,20 +285,6 @@ function SaveBlocks(drop_blocks) {
   xhr.send(JSON.stringify(drop_blocks))
 }
 
-function GetBlockDimensions(block) {
-  var css = block.css instanceof Object ? block.css : JSON.parse(block.css)
-  var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
-  var endTile = document.getElementById(`tile_${block.end_y}-${block.end_x}`);
-  var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
-  var tileHeight = tileWidth
-  return {
-    top: startTile.offsetTop,
-    left: startTile.offsetLeft,
-    width: tileWidth,
-    height: tileHeight
-  }
-}
-
 function CreateAndAddBlock(block) {
   var div = document.createElement("div");
   div.classList.add('block');
@@ -347,11 +333,12 @@ function GetBlocks() {
     }
     if (res.status == 'success') {
       control.needsUpdate = false
-      control.blocks = res.data.map(block => {
+      var blocks = res.data.map(block => {
         block.object_area = JSON.parse(block.object_area)
+        block.css = JSON.parse(block.css)
         return block
       })
-      RenderBlocks()
+      RenderBlocks(blocks)
     }
   })
   xhr.send()
@@ -373,49 +360,9 @@ function calculateAbsoluteOffsets(left, top, width, height, scaleX, scaleY, orig
     return { newLeft, newTop };
 }
 
-function CreateAndAddBlockArea(block, top, left, width, height) {
-  var _transform = JSON.parse(block.css).transform;
-  var transform = {
-    scale: 1,
-    translateX: 0,
-    translateY: 0
-  };
-
-  var regex = /([a-zA-Z]+)\((-?\d+(\.\d+)?(px|deg|%)?)\)/g;
-  var match;
-  var unitRegex = /[a-zA-Z%]+/g;
-
-  while ((match = regex.exec(_transform)) !== null) {
-    transform[match[1]] = +match[2].replace(unitRegex, '');
-  }
-  var segment = (width * transform.scale) / 7
-  var view = document.getElementById('view')
-  for (var object_area of block.object_area) {
-    var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}`;
-    if (document.getElementById(objectAreaId)) {
-      document.getElementById(objectAreaId).remove()
-    }
-    var objectArea = document.createElement('div');
-    objectArea.classList.add('object-area');
-    objectArea.id = objectAreaId;
-    
-    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform.scale, transform.scale, 0.5, 0.5)
-
-    $(objectArea).css({
-      width: segment + 'px',
-      height: segment + 'px',
-      top: newTop + (segment * object_area[0]) + 'px',
-      left: newLeft + (segment * object_area[1]) + 'px'
-    });
-
-
-    view.appendChild(objectArea);
-  }
-}
-
-function RenderBlocks() {
+function RenderBlocks(blocks) {
   $('.object-area').remove()
-  for (var block of control.blocks) {
+  for (var block of blocks) {
     CreateAndAddBlock(block)
   }
   AdjustEditBlockImage()
@@ -493,29 +440,45 @@ function AdjustEditBlockImage() {
 }
 
 function ClickBlock(event) {
-  let block = view.blocks[event.srcElement.id]
-  control.block = block
+
+  $('.block').removeClass('editing')
+
+  control.blocks = []
+  for (var key in view.blocks) {
+    if (view.blocks[key].block.recurrence_id == event.srcElement.dataset.recurrence_id) {
+      control.blocks.push(view.blocks[key].block)
+      console.log(view.blocks[key].div)
+      $(view.blocks[key].div).addClass('editing')
+    }
+  }
 
   AdjustEditBlockImage()
 
-  $('.block').removeClass('editing')
-  block.div.classList.add('editing')
-  $('#ui-id-3').click()
-  var css = JSON.parse(block.block.css)
-  css.backgroundImage = `url(/get-image/${block.block.image_id})`
-  css.transform = css.transform.replace(/scale\(+.\)/, '')
-  $('#block-image').css(css)
-  $('#block-css').html(JSON.stringify(JSON.parse(block.block.css), null, 1))
+  $('a[href="#edit-blocks"]').click()
 
-  $('#block-type-edit .drop-dimensions input').val(control.block.block.dimension)
+  $('#ui-id-3').click()
+
+  var css = control.blocks[0].css
+
+  $('#block-css').html(JSON.stringify(css, null, 1))
+
+  css.backgroundImage = `url(/get-image/${control.blocks[0].image_id})`
+
+  css.transform = css.transform.replace(/scale\(+.\)/, '')
+
+  $('#block-image').css(css)
+
+  $('#block-type-edit .drop-dimensions input').val(control.blocks[0].dimension)
 
   ValidateBlockCSS()
 
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('.object-area-preview.selected').removeClass('selected')
 
-  for (var b of control.block.block.object_area) {
-    $(`#object-area-${b[0]}_${b[1]}`).addClass('selected')
+  for (var block of control.blocks) {
+    for (var b of block.object_area) {
+      $(`#object-area-${b[0]}_${b[1]}`).addClass('selected')
+    }
   }
 }
 
@@ -553,16 +516,7 @@ function UpdateBlock() {
     console.log(res)
     if (res.status == 'success') {
       var newObjectArea = JSON.parse(res.data)
-      for (var block of control.blocks) {
-        if (block.recurrence_id == control.block.block.recurrence_id) {
-          block.object_area = newObjectArea
-        }
-      }
-      for (var id in view.blocks) {
-        if (view.blocks[id].block.recurrence_id == control.block.block.recurrence_id) {
-          view.blocks[id].block.object_area = newObjectArea
-        }
-      }
+      UpdateObjectAreaLocalCache(newObjectArea)
       LoadView()
     }
   })
@@ -594,15 +548,20 @@ function isValidCSS(rules) {
 }
 
 function UpdateBlockCache(recurrence_id, key, value) {
-  control.block.block[key] = value
-  for (var block of control.blocks) {
-    if (block.recurrence_id == recurrence_id) {
-      block[key] = value
-    }
-  }
+  control.blocks.forEach(block => {
+    block[key] = value
+  })
   for (var id in view.blocks) {
     if (view.blocks[id].block.recurrence_id == recurrence_id) {
       view.blocks[id].block[key] = value
+    }
+  }
+}
+
+function UpdateObjectAreaLocalCache(newObjectArea) {
+  for (var id in view.blocks) {
+    if (view.blocks[id].block.recurrence_id == control.block.block.recurrence_id) {
+      view.blocks[id].block.object_area = newObjectArea
     }
   }
 }
@@ -615,6 +574,20 @@ function ValidateBlockCSS() {
     $("#block-css").addClass('invalid')
   } else {
     $("#block-css").removeClass('invalid')
+  }
+}
+
+function GetBlockDimensions(block) {
+  var css = block.css
+  var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
+  var endTile = document.getElementById(`tile_${block.end_y}-${block.end_x}`);
+  var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
+  var tileHeight = tileWidth
+  return {
+    top: startTile.offsetTop,
+    left: startTile.offsetLeft,
+    width: tileWidth,
+    height: tileHeight
   }
 }
 
@@ -632,20 +605,62 @@ function ApplyBlockCSS() {
       }
     }
   }
-  UpdateBlockCache(control.block.block.recurrence_id, 'css', newCSS)
-  document.querySelectorAll(`.block[data-recurrence_id="${control.block.block.recurrence_id}"]`).forEach(block => {
-    $(block).css(newCSS)
-  })
+
+  UpdateBlockCache(control.blocks[0].recurrence_id, 'css', newCSS)
+
+  $(`.block[data-recurrence_id="${control.blocks[0].recurrence_id}"]`).css(newCSS)
+
   UpdateBlockStyle()
-  if (view.view_block_areas) {
-    const { top, left, width, height } = GetBlockDimensions(control.block.block)
-    CreateAndAddBlockArea(control.block.block, top, left, width, height)
+
+  for (var block of control.blocks) {
+    const { top, left, width, height } = GetBlockDimensions(block)
+    CreateAndAddBlockArea(block, top, left, width, height)
+  }
+}
+
+function CreateAndAddBlockArea(block, top, left, width, height) {
+  var _transform = block.css.transform
+  var transform = {
+    scale: 1,
+    translateX: 0,
+    translateY: 0
+  };
+
+  var regex = /([a-zA-Z]+)\((-?\d+(\.\d+)?(px|deg|%)?)\)/g;
+  var match;
+  var unitRegex = /[a-zA-Z%]+/g;
+
+  while ((match = regex.exec(_transform)) !== null) {
+    transform[match[1]] = +match[2].replace(unitRegex, '');
+  }
+  var segment = (width * transform.scale) / 7
+  var view = document.getElementById('view')
+  for (var object_area of block.object_area) {
+    var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}`;
+    if (document.getElementById(objectAreaId)) {
+      document.getElementById(objectAreaId).remove()
+    }
+    var objectArea = document.createElement('div');
+    objectArea.classList.add('object-area');
+    objectArea.id = objectAreaId;
+    
+    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform.scale, transform.scale, 0.5, 0.5)
+
+    $(objectArea).css({
+      width: segment + 'px',
+      height: segment + 'px',
+      top: newTop + (segment * object_area[0]) + 'px',
+      left: newLeft + (segment * object_area[1]) + 'px'
+    });
+
+
+    view.appendChild(objectArea);
   }
 }
 
 function UpdateBlockStyle() {
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', `/update-block-style/${control.block.block.recurrence_id}`)
+  xhr.open('POST', `/update-block-style/${control.blocks[0].recurrence_id}`)
   xhr.addEventListener('load', function() {
     let res
     try {
@@ -654,7 +669,7 @@ function UpdateBlockStyle() {
       window.reload();
     }
   })
-  let payload = control.block.block
+  let payload = Object.assign({}, control.blocks[0])
   payload.css = JSON.stringify(payload.css)
   xhr.send(JSON.stringify(
     include(payload, ['recurrence_id', 'dimension', 'css'])
