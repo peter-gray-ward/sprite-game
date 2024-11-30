@@ -201,7 +201,7 @@ a.ui-button:active,
 	height: 5vh;
 	display: flex;
 	flex-direction: row;
-	justify-content: flex-start;
+	justify-content: space-around;
 	align-items: center;
 }
 
@@ -215,12 +215,22 @@ a.ui-button:active,
 	width: 3rem;
 }
 
-.drop-dimensions {
+.x-repeat, .x-dir {
+	background: aliceblue;
+	border: 1px solid gray;
+}
+
+.y-repeat, .y-dir {
+	background: pink;
+	border: 1px solid gray;
+}
+
+.drop-options > div {
 	display: flex;
 	align-items: center;
 }
 
-.drop-dimensions input {
+.drop-options > div input {
 	text-align: center;
 }
 
@@ -396,6 +406,16 @@ a.ui-button:active,
 #block-type-edit > div {
 	display: flex;
     justify-content: space-around;
+}
+
+#block-type-edit > div > label,
+#block-type-edit > div > input {
+	width: 50%;
+	border: none;
+}
+
+#block-type-edit > div > input {
+	background: white;
 }
 
 #view-options {

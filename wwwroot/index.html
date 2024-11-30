@@ -26,10 +26,12 @@
                     <div id="search-images">
                         <div class="drop-options">
                             <div class="drop-dimensions">
-                                <label>dimension</label>&nbsp;<input name="width" type="number" class="width" value="1"/>
+                                <label>dim</label>&nbsp;<input name="width" class="dimension" type="number" class="width" value="1"/>
                             </div>
-                            <label>x-repeat</label><input type="number" name="x-repeat" class="x-repeat" value="1" />
-                            <label>y-repeat</label><input type="number" name="y-repeat" class="y-repeat" value="1" />
+                            <div><label>x-repeat</label><input type="number" name="x-repeat" class="x-repeat" value="1" /></div>
+                            <div><label>x-dir</label><input type="number" name="x-dir" class="x-dir" value="1" /></div>
+                            <div><label>y-repeat</label><input type="number" name="y-repeat" class="y-repeat" value="1" /></div>
+                            <div><label>y-dir</label><input type="number" name="y-dir" class="y-dir" value="1" /></div>
                         </div>  
                         <div id="search-bar">
                             <input name="pixabay-search" id="pixabay-search" data-page="1" placeholder="search images" />
@@ -49,7 +51,13 @@
                         <section>
                             <div id="block-type-edit">
                                 <div class="drop-dimensions">
-                                    <label>dimension</label><input disabled name="width" type="number" class="width" value="1"/>
+                                    <label>dimension</label><input name="width" class="dim" type="number" class="width" value="1"/>
+                                </div>
+                                <div>
+                                    <label>y-repeat</label><input name="y-repeat" class="y-repeat" type="number" placeholder="y-repeat" />
+                                </div>
+                                <div>
+                                    <label>x-repeat</label><input name="x-repeat" class="x-repeat" type="number" placeholder="x-repeat" />
                                 </div>
                             </div>
                         </section>

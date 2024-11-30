@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Http;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Net.Http;
@@ -307,6 +308,16 @@ app.MapGet("/get-image/{imageId}", async context =>
     }
 });
 
+/**
+    id,
+    dimensions,
+    xRepeat, 
+    yRepeat,
+    xDir, 
+    yDir,
+    start_y,
+    start_x
+*/
 app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 {
     string user_name = context.Session.GetString("name");
@@ -316,39 +327,45 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 		string imageId = context.Request.RouteValues["imageId"].ToString();
 		int levelId = Convert.ToInt32(context.Request.RouteValues["levelId"]);
 		var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-		List<Dictionary<string, List<int>>> drop_block_ids = JsonSerializer.Deserialize<List<Dictionary<string, List<int>>>>(body);
+		Dictionary<string, JsonElement> drop_area = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body);
 		using (var connection = new NpgsqlConnection(connectionString))
 		{
 			await connection.OpenAsync();
-            string message = "";
+
+            var id = Guid.NewGuid();
             var recurrence_id = Guid.NewGuid();
-			foreach (Dictionary<string, List<int>> block in drop_block_ids)
-			{
-				var command = new NpgsqlCommand(@$"
-					INSERT INTO public.Block
-					(id, user_name, level_id, image_id, start_x, start_y, end_x, end_y, dimension, recurrence_id)
-					VALUES
-					(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @end_x, @end_y, @dimension, @recurrence_id)
-				", connection);
-				command.Parameters.AddWithValue("id", Guid.NewGuid());
-                command.Parameters.AddWithValue("user_name", user_name);
-				command.Parameters.AddWithValue("level_id", levelId);
-				command.Parameters.AddWithValue("image_id", Guid.Parse(imageId));
-				command.Parameters.AddWithValue("start_y", block["start"][0]);
-				command.Parameters.AddWithValue("start_x", block["start"][1]);
-				command.Parameters.AddWithValue("end_y", block["end"][0]);
-				command.Parameters.AddWithValue("end_x", block["end"][1]);
-                command.Parameters.AddWithValue("dimension", block["dimension"][0]);
-                command.Parameters.AddWithValue("recurrence_id", recurrence_id);
-				await command.ExecuteNonQueryAsync();
-                message += $"Saved block {block["start"][0]}, {block["start"][1]}\n";
-			}
+            int x_dir = drop_area["xDir"].GetInt32();
+            int y_dir = drop_area["yDir"].GetInt32();
+
+			var command = new NpgsqlCommand(@$"
+				INSERT INTO public.Block
+				(id, user_name, level_id, image_id, start_x, start_y, repeat_y, repeat_x, dir_y, dir_x, dimension, recurrence_id)
+				VALUES
+				(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @repeat_y, @repeat_x, @dir_y, @dir_x, @dimension, @recurrence_id)
+			", connection);
+
+			command.Parameters.AddWithValue("id", id);
+            command.Parameters.AddWithValue("user_name", user_name);
+			command.Parameters.AddWithValue("level_id", levelId);
+			command.Parameters.AddWithValue("image_id", Guid.Parse(imageId));
+			command.Parameters.AddWithValue("start_y", drop_area["start_y"].GetInt32());
+			command.Parameters.AddWithValue("start_x", drop_area["start_y"].GetInt32());
+			command.Parameters.AddWithValue("repeat_y", drop_area["yRepeat"].GetInt32());
+			command.Parameters.AddWithValue("repeat_x", drop_area["xRepeat"].GetInt32());
+            command.Parameters.AddWithValue("dir_y", x_dir / Math.Abs(x_dir));
+            command.Parameters.AddWithValue("dir_x", y_dir / Math.Abs(y_dir));
+            command.Parameters.AddWithValue("dimension", drop_area["dimensions"].GetInt32());
+            command.Parameters.AddWithValue("recurrence_id", recurrence_id);
+
+			await command.ExecuteNonQueryAsync();
+
             context.Response.StatusCode = 200;
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", message = message }));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", message = id.ToString() }));
 		}
 	}
 	catch (Exception e)
 	{
+        EventLog.WriteEntry("Application", e.ToString(), EventLogEntryType.Error);
 		context.Response.StatusCode = 500;
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
 	}
@@ -369,11 +386,23 @@ app.MapPost("/update-block-style/{recurrence_id}", async context =>
                 UPDATE public.Block
                 SET
                     dimension = @dimension,
+                    start_y = @start_y,
+                    start_x = @start_x,
+                    repeat_y = @repeat_y,
+                    repeat_x = @repeat_y,
+                    dir_y = @dir_y,
+                    dir_x = @dir_x,
                     css = @css
                 WHERE recurrence_id = @recurrence_id
             ", connection);
             command.Parameters.AddWithValue("recurrence_id", Guid.Parse(recurrence_id));
             command.Parameters.AddWithValue("dimension", block["dimension"].GetInt32());
+            command.Parameters.AddWithValue("start_y", block["start_y"].GetInt32());
+            command.Parameters.AddWithValue("start_x", block["start_x"].GetInt32());
+            command.Parameters.AddWithValue("repeat_y", block["repeat_y"].GetInt32());
+            command.Parameters.AddWithValue("repeat_x", block["repeat_x"].GetInt32());
+            command.Parameters.AddWithValue("dir_y", block["dir_y"].GetInt32());
+            command.Parameters.AddWithValue("dir_x", block["dir_x"].GetInt32());
             command.Parameters.AddWithValue("css", block["css"].GetString());
             await command.ExecuteNonQueryAsync();
             context.Response.StatusCode = 200;

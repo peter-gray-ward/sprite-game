@@ -9,7 +9,8 @@ var events = {
   '.object-area-preview:mousemove': ObjectAreaPreviewMousemove,
   '.object-area-preview:mouseup': ObjectAreaPreviewMouseup,
   '#block-css:keyup': ValidateBlockCSS,
-  '#apply-block-css:click': ApplyBlockCSS
+  '#apply-block-css:click': ApplyBlockCSS,
+  '#view-object-areas:change': ChangeViewObjectAreas
 }
 
 Array.prototype.contains = function(str) {
@@ -44,6 +45,7 @@ function omit(obj, omissions) {
 var view = {
   dimension: 20,
   blocks: {},
+  drop_area: {},
   view_block_areas: true
 }
 
@@ -225,33 +227,42 @@ function MakeDraggable(element) {
   })
 }
 
-var drop_blocks = []
 function MakeDroppable(element) {
    $(element).droppable({
     drop: function(event, ui) {
-      console.log(drop_blocks)
+      console.log(view.drop_area)
       if (control.image_id && !control.image_id == "") {
-        SaveBlocks(drop_blocks)
+        SaveBlocks()
       } else {
         SaveImage(null, function() {
-          SaveBlocks(drop_blocks)
+          SaveBlocks()
         })
       }
     },
     over: function(event, ui) {
       $('.tile').removeClass('over')
-      drop_blocks = []
-      const dimensions = Math.abs(Math.floor($(".drop-dimensions input").filter(':visible').val()))
-      const xRepeat = Math.abs(Math.floor($(".x-repeat").filter(':visible').val()))
-      const yRepeat = Math.abs(Math.floor($(".y-repeat").filter(':visible').val()))
+
+      const dimensions = Math.abs(Math.floor($(".drop-dimensions input").val()))
+      const xRepeat = Math.abs(Math.floor($(".x-repeat").val()))
+      const yRepeat = Math.abs(Math.floor($(".y-repeat").val()))
+      const xDir = Math.abs(Math.floor($(".x-dir").val()))
+      const yDir = Math.abs(Math.floor($(".y-dir").val()))
+
       var id = event.target.id.replace('tile_', '').split('-').map(Number)
-      for (var y = id[0]; y < id[0] + (dimensions * yRepeat); y += dimensions) {
-        for (var x = id[1]; x < id[1] + (dimensions * xRepeat); x += dimensions) {
-          drop_blocks.push({
-            dimension: [dimensions],
-            start: [y, x],
-            end: [y + dimensions - 1, x + dimensions - 1]
-          })
+
+
+      view.drop_area = {
+        dimensions,
+        xRepeat, 
+        yRepeat,
+        xDir, 
+        yDir,
+        start_x: id[1],
+        start_y: id[0]
+      }
+
+      for (var y = id[0]; y < id[0] + (dimensions * yRepeat); y += dimensions * (yDir / Math.abs(yDir))) {
+        for (var x = id[1]; x < id[1] + (dimensions * xRepeat); x += dimensions * (xDir / Math.abs(xDir))) {
           for (var i = y; i < y + dimensions; i++) {
             for (var j = x; j < x + dimensions; j++) {
               if (i < view.dimension && j < view.dimension) {
@@ -261,11 +272,13 @@ function MakeDroppable(element) {
           }
         }
       }
+
+
     }
   })
 }
 
-function SaveBlocks(drop_blocks) {
+function SaveBlocks() {
   var xhr = new XMLHttpRequest()
   const url = '/save-blocks/' + player.level + '/' + control.image_id
   xhr.open('POST', url)
@@ -282,39 +295,7 @@ function SaveBlocks(drop_blocks) {
     }
     control.image_id = ''
   })
-  xhr.send(JSON.stringify(drop_blocks))
-}
-
-function CreateAndAddBlock(block) {
-  var div = document.createElement("div");
-  div.classList.add('block');
-  
-
-  var css = block.css instanceof Object ? block.css : JSON.parse(block.css)
-  css.backgroundImage = `url(/get-image/${block.image_id})`
-  $(div).css(css)
-
-  var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
-  var endTile = document.getElementById(`tile_${block.end_y}-${block.end_x}`);
-  var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
-  var tileHeight = tileWidth
-  div.style.width = tileWidth + 'px'
-  div.style.height = tileHeight + 'px'
-  div.style.top = startTile.offsetTop + 'px'
-  div.style.left = startTile.offsetLeft + 'px'
-  div.id = block.id
-  div.dataset.recurrence_id = block.recurrence_id;
-
-  document.getElementById('view').appendChild(div)
-
-  view.blocks[block.id] = {
-    block,
-    div
-  }
-
-  if (view.view_block_areas && block.object_area.length) {
-    CreateAndAddBlockArea(block, startTile.offsetTop, startTile.offsetLeft, tileWidth, tileHeight)
-  }
+  xhr.send(JSON.stringify(view.drop_area))
 }
 
 function GetBlocks() {
@@ -363,8 +344,48 @@ function calculateAbsoluteOffsets(left, top, width, height, scaleX, scaleY, orig
 function RenderBlocks(blocks) {
   $('.object-area').remove()
   for (var block of blocks) {
-    CreateAndAddBlock(block)
+    for (var y = block.start_y; y < block.start_y + (block.dimension * block.repeat_y); y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
+      for (var x = block.start_x; x < block.start_x + (block.dimension * block.repeat_x); x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
+        for (var i = y; i < y + block.dimension; i++) {
+          for (var j = x; j < x + block.dimension; j++) {
+            let renderedBlock = Object.assign({}, block);
+            renderedBlock.start_x = x;
+            renderedBlock.start_y = y;
+
+            var div = document.createElement("div");
+            div.classList.add('block');
+            
+
+            var css = Object.assign({}, renderedBlock.css);
+            css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
+            $(div).css(css)
+
+            var startTile = document.getElementById(`tile_${renderedBlock.start_y}-${renderedBlock.start_x}`);
+            var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * renderedBlock.dimension
+            var tileHeight = tileWidth
+            div.style.width = tileWidth + 'px'
+            div.style.height = tileHeight + 'px'
+            div.style.top = startTile.offsetTop + 'px'
+            div.style.left = startTile.offsetLeft + 'px'
+            div.dataset.id = block.id
+            div.dataset.recurrence_id = renderedBlock.recurrence_id;
+
+            document.getElementById('view').appendChild(div)
+
+            if (!view.blocks[renderedBlock.id]) {
+              view.blocks[renderedBlock.id]  = {
+                block: renderedBlock,
+                divs: []
+              }
+            }
+
+            view.blocks[renderedBlock.id].divs.push(div)
+          }
+        }
+      }
+    }
   }
+  AddObjectAreas()
   AdjustEditBlockImage()
   AddEvents()
 }
@@ -376,7 +397,7 @@ function LoadView() {
   if (control.needsUpdate) {
     GetBlocks()
   } else {
-    RenderBlocks()
+    RenderBlocks(Object.values(view.blocks).map(block => block.block))
   }
   $('.object-area').css('height', $(".object-area").css('width'))
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
@@ -443,43 +464,43 @@ function ClickBlock(event) {
 
   $('.block').removeClass('editing')
 
-  control.blocks = []
-  for (var key in view.blocks) {
-    if (view.blocks[key].block.recurrence_id == event.srcElement.dataset.recurrence_id) {
-      control.blocks.push(view.blocks[key].block)
-      console.log(view.blocks[key].div)
-      $(view.blocks[key].div).addClass('editing')
-    }
-  }
+  control.block_id = event.srcElement.dataset.id
+  view.blocks[control.block_id].divs.forEach(div => {
+    $(div).addClass('editing')
+  });
 
+  PopulateBlockTypeOptions()
   AdjustEditBlockImage()
 
   $('a[href="#edit-blocks"]').click()
-
   $('#ui-id-3').click()
 
-  var css = control.blocks[0].css
+  var css = Object.assign({}, view.blocks[control.block_id].block.css);
 
   $('#block-css').html(JSON.stringify(css, null, 1))
 
-  css.backgroundImage = `url(/get-image/${control.blocks[0].image_id})`
-
+  css.backgroundImage = `url(/get-image/${view.blocks[control.block_id].block.image_id})`;
   css.transform = css.transform.replace(/scale\(+.\)/, '')
 
   $('#block-image').css(css)
-
-  $('#block-type-edit .drop-dimensions input').val(control.blocks[0].dimension)
+  $('#block-type-edit .drop-dimensions input').val(view.blocks[control.block_id].block.dimension)
 
   ValidateBlockCSS()
 
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('.object-area-preview.selected').removeClass('selected')
 
-  for (var block of control.blocks) {
-    for (var b of block.object_area) {
-      $(`#object-area-${b[0]}_${b[1]}`).addClass('selected')
-    }
+  for (var object_area of view.blocks[control.block_id].block.object_area) {
+    $(`#object-area-${object_area[0]}_${object_area[1]}`).addClass('selected')
   }
+
+}
+
+function PopulateBlockTypeOptions() {
+  const block = view.blocks[control.block_id].block;
+  $("#block-type-edit .dimension").val(block.dimension)
+  $("#block-type-edit .y-repeat").val(block.repeat_y)
+  $("#block-type-edit .x-repeat").val(block.repeat_x)
 }
 
 function ObjectAreaPreviewMousedown(event) {
@@ -580,7 +601,6 @@ function ValidateBlockCSS() {
 function GetBlockDimensions(block) {
   var css = block.css
   var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
-  var endTile = document.getElementById(`tile_${block.end_y}-${block.end_x}`);
   var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
   var tileHeight = tileWidth
   return {
@@ -612,9 +632,18 @@ function ApplyBlockCSS() {
 
   UpdateBlockStyle()
 
-  for (var block of control.blocks) {
-    const { top, left, width, height } = GetBlockDimensions(block)
-    CreateAndAddBlockArea(block, top, left, width, height)
+  if (control.blocks[0].object_area && control.blocks[0].object_area.length) {
+    AddObjectAreas()
+  }
+}
+
+function AddObjectAreas() {
+  $('.object-area').each((_, elem) => elem.remove())
+  if (view.view_block_areas) {
+    for (var b of Object.values(view.blocks)) {
+      const { top, left, width, height } = GetBlockDimensions(b.block)
+      CreateAndAddBlockArea(b.block, top, left, width, height)
+    }
   }
 }
 
@@ -675,6 +704,18 @@ function UpdateBlockStyle() {
     include(payload, ['recurrence_id', 'dimension', 'css'])
   ))
 }
+
+function ChangeViewObjectAreas() {
+  var doView = $('#view-object-areas').is(':checked')
+  view.view_block_areas = doView
+  AddObjectAreas()
+}
+
+
+
+
+
+
 
 $( function() {
   console.log('starting...')
