@@ -1,7 +1,7 @@
 var events = {
   '#log-out:click': Logout,
   '#search-pixabay:click': SearchPixabay,
-  '#pixabay-results:scroll': ScrollPixabayResults,
+  '#image-browse-results:scroll': ScrollPixabayResults,
   '.pixabay-result:dblclick': SaveImage,
   '#image-browse-select:change': SelectTag,
   '.block:click': ClickBlock,
@@ -132,7 +132,8 @@ function SearchPixabay(event, fresh = true) {
   searching = true
   try {
     var elem = document.getElementById('pixabay-search')
-    var results = document.getElementById('pixabay-results')
+    var results = document.getElementById('image-browse-results')
+    results.classList.add('pixabay-results')
     if (fresh) {
       results.innerHTML = ''
       urls = {}
@@ -157,11 +158,13 @@ function SearchPixabay(event, fresh = true) {
 }
 
 function ScrollPixabayResults(event) {
-  const scrollableElement = event.target;
-  const isAtBottom = 
-    scrollableElement.scrollHeight - scrollableElement.scrollTop <= scrollableElement.clientHeight;
-  if (isAtBottom) {
-    SearchPixabay(null, false);
+  if ($('#image-browse-results').hasClass('pixabay-results')) {
+    const scrollableElement = event.target;
+    console.log(scrollableElement.scrollHeight - scrollableElement.scrollTop, scrollableElement.clientHeight)
+    const isAtBottom = scrollableElement.scrollHeight - scrollableElement.scrollTop <= scrollableElement.clientHeight + .5;
+    if (isAtBottom) {
+      SearchPixabay(null, false);
+    }
   }
 }
 
@@ -205,7 +208,7 @@ function MakeDraggable(element) {
   $(element).draggable({
     start: function(event, ui) {
       $(this).addClass('dragging')
-      $('#pixabay-results, #image-browse-results').css('overflow', 'visible')
+      $('#image-browse-results, #image-browse-results').css('overflow', 'visible')
       let image_id = ParseImageId(element)
       if (/pixabay/.test(image_id)) {
         control.pixabay_url = image_id
@@ -215,7 +218,7 @@ function MakeDraggable(element) {
     },
     stop: function(event, ui) {
       $(this).removeClass('dragging')
-      $('#pixabay-results, #image-browse-results').css('overflow', 'auto')
+      $('#image-browse-results, #image-browse-results').css('overflow', 'auto')
       $('.tile').removeClass('over')
     },
     revert: true
@@ -328,7 +331,6 @@ function CreateAndAddBlock(block) {
   }
 }
 
-
 function GetBlocks() {
   view.blocks = {}
   document.querySelectorAll('.block', function(elem) {
@@ -396,10 +398,6 @@ function CreateAndAddBlockArea(block, top, left, width, height) {
     var objectArea = document.createElement('div');
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
-
-    // let topOffset = segment * object_area[0] + transform.translateY
-    // let leftOffset = segment * object_area[1] + transform.translateX
-
     
     var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform.scale, transform.scale, 0.5, 0.5)
 
@@ -475,6 +473,7 @@ function LoadImageIds() {
 function SelectTag(event) {
   var tag = event.srcElement.value
   var results = document.getElementById('image-browse-results')
+  results.classList.remove('pixabay-results')
   results.innerHTML = ''
   for (var image_url of control.image_urls[tag]) {
     console.log(image_url)
@@ -525,11 +524,13 @@ function ObjectAreaPreviewMousedown(event) {
   control.object_area_preview.active = true
   $(event.target).toggleClass('selected')
 }
+
 function ObjectAreaPreviewMousemove(event) {
   if (control.object_area_preview.active) {
     $(event.target).addClass('selected')
   }
 }
+
 function ObjectAreaPreviewMouseup(event) {
   control.object_area_preview.object_area = []
   setTimeout(function() {
@@ -579,7 +580,6 @@ function isValidJson(jsonString) {
     }
 }
 
-
 function isValidCSS(rules) {
     const tempElement = document.createElement('div');
     for (let property in rules) {
@@ -606,7 +606,6 @@ function UpdateBlockCache(recurrence_id, key, value) {
     }
   }
 }
-
 
 function ValidateBlockCSS() {
   var css = $("#block-css").val()
@@ -691,6 +690,7 @@ $( function() {
   }
 
   LoadView()
+  LoadImageIds()
 
   for (var key in events) {
     var split_key = key.split(':')
@@ -703,7 +703,7 @@ $( function() {
     activate: function(event, ui) {
       console.log('activate')
       switch (event.delegateTarget.href.split('/').pop()) {
-      case "#browse-images":
+      case "#search-images":
         LoadImageIds()
         break;
       default: 

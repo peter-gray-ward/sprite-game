@@ -63,15 +63,15 @@ main {
 	flex-direction: column;
 }
 
-#search-bar {
+#search-bar, #href-input-bar {
 	width: 100%;
 	display: flex;
 	flex-direction: row;
 	align-items: center;
+	height: 5vh;
 }
 
 #search-bar label,  #image-browse-select {
-	font-size: 0.9rem;
 	display: flex;
 	align-items: center;
 	margin: 0 0.1rem;
@@ -79,7 +79,6 @@ main {
 }
 
 #pixabay-search {
-	font-size: 0.9rem;
 	background: white;
 	flex-grow: 1;
 	border: 1px solid gray;
@@ -92,6 +91,26 @@ main {
 
 #search-vector {
 	font-size: 2rem;
+}
+
+#href-input-bar button {
+	width: 5rem;
+	margin: 0.1rem;
+}
+
+#href-input-bar input {
+	flex-grow: 1;
+}
+
+#image-browse {
+	width: 100%;
+	height: 5vh;
+	display: flex;
+	align-items: center;
+}
+
+#image-browse-select {
+	width: 100%;
 }
 
 .button {
@@ -108,7 +127,7 @@ main {
 	background: black !important;
 }
 
-#pixabay-results, #image-browse-results {
+#image-browse-results {
 	display: flex;
 	flex-direction: row;
 	flex-grow: 1;
@@ -116,7 +135,7 @@ main {
 	gap: none;
 	padding: 0.15rem;
 	justify-content: space-around;
-	height: calc(min(70vw, 100vh) - 20vh);
+	height: calc(70vh - 0.3rem);
 	overflow: auto;
 }
 
