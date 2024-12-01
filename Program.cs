@@ -349,7 +349,7 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 			command.Parameters.AddWithValue("level_id", levelId);
 			command.Parameters.AddWithValue("image_id", Guid.Parse(imageId));
 			command.Parameters.AddWithValue("start_y", drop_area["start_y"].GetInt32());
-			command.Parameters.AddWithValue("start_x", drop_area["start_y"].GetInt32());
+			command.Parameters.AddWithValue("start_x", drop_area["start_x"].GetInt32());
 			command.Parameters.AddWithValue("repeat_y", drop_area["yRepeat"].GetInt32());
 			command.Parameters.AddWithValue("repeat_x", drop_area["xRepeat"].GetInt32());
             command.Parameters.AddWithValue("dir_y", x_dir / Math.Abs(x_dir));
@@ -365,10 +365,40 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 	}
 	catch (Exception e)
 	{
-        EventLog.WriteEntry("Application", e.ToString(), EventLogEntryType.Error);
 		context.Response.StatusCode = 500;
         await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
 	}
+});
+
+app.MapDelete("/delete-block/{recurrence_id}", async context =>
+{
+    try
+    {
+        string recurrence_id = context.Request.RouteValues["recurrence_id"].ToString();
+        using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            var command = new NpgsqlCommand(@$"
+                DELETE FROM public.Block
+                WHERE recurrence_id = @recurrence_id
+            ", connection);
+            command.Parameters.AddWithValue("recurrence_id", Guid.Parse(recurrence_id));
+            await command.ExecuteNonQueryAsync();
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success" }));
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Exception: " + ex.Message);
+        Console.WriteLine("Stack Trace: " + ex.StackTrace);
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine("Inner Exception: " + ex.InnerException.Message);
+        }
+
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = ex.Message }));
+    }
 });
 
 app.MapPost("/update-block-style/{recurrence_id}", async context =>

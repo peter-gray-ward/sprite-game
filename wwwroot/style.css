@@ -31,6 +31,11 @@ main {
 	margin: 0;
 	border: 1px dotted rgba(255, 255, 255, 0.3);
 	z-index: 0;
+	font-size: 0.5rem;
+	color: rgba(255, 255, 255, 0.3);
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .tile.over {
@@ -74,7 +79,6 @@ main {
 #search-bar label,  #image-browse-select {
 	display: flex;
 	align-items: center;
-	margin: 0 0.1rem;
 	font-style: italic;
 }
 
@@ -291,7 +295,7 @@ a.ui-button:active,
 }
 
 .block.editing {
-	border: 5px dotted red;
+	border: 2px dotted red;
 }
 
 #edit-blocks {
@@ -299,8 +303,31 @@ a.ui-button:active,
 	width: 100%;
 	height: calc(100vh - 10vh);
 	display: flex;
+	flex-direction: column;
+	flex-wrap: wrap;
+}
+
+#edit-blocks .inputs {
+	width: 100%;
+	height: calc(100% - 5vh);
+	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
+}
+
+#edit-blocks .applications {
+	width: 100%;
+	height: 5vh;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-start;
+	background: #c5c5c5;
+}
+
+.applications button {
+	margin: 0.1rem;
 }
 
 #edit-blocks section {
@@ -316,11 +343,13 @@ a.ui-button:active,
 	margin: 0;
 }
 
-#edit-block-css button {
-	position: absolute;
-	left: calc(100% - 4rem);
-	height: 2rem;
-	top: calc(100% - 1rem - 5vh);
+#apply-block-edits {
+
+}
+
+
+#delete-block {
+	width: 4rem;
 }
 
 #block-css {
@@ -423,6 +452,7 @@ a.ui-button:active,
 	background: rgba(0,0,0,0.05);
 	left: 1vw;
 	top: 1vh;
+	display: flex;
 }
 
 #view-options * {
@@ -430,6 +460,7 @@ a.ui-button:active,
 	border: none;
 	color: white;
 }
+
 
 @media (max-width: 1093px) {
 	.ui-tabs .ui-tabs-nav .ui-tabs-anchor {
@@ -447,9 +478,7 @@ a.ui-button:active,
 	.ui-tabs .ui-tabs-nav .ui-tabs-anchor {
 		font-size: 1vw;
 	}
-	#search-pixabay, #pixabay-search, #search-bar label {
-		font-size: 1vw !important;
-	}
+
 	.drop-options label {
 		display: none;
 	}

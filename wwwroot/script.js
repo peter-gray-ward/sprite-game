@@ -4,13 +4,15 @@ var events = {
   '#image-browse-results:scroll': ScrollPixabayResults,
   '.pixabay-result:dblclick': SaveImage,
   '#image-browse-select:change': SelectTag,
-  '.block:click': ClickBlock,
+  '.block:click': SelectBlock,
   '.object-area-preview:mousedown': ObjectAreaPreviewMousedown,
   '.object-area-preview:mousemove': ObjectAreaPreviewMousemove,
   '.object-area-preview:mouseup': ObjectAreaPreviewMouseup,
   '#block-css:keyup': ValidateBlockCSS,
-  '#apply-block-css:click': ApplyBlockCSS,
-  '#view-object-areas:change': ChangeViewObjectAreas
+  '#apply-block-edits:click': ApplyBlockEdits,
+  '#view-object-areas:change': ChangeViewObjectAreas,
+  '#delete-block:click': DeleteBlock,
+  '.tile:click': DeselectBlock
 }
 
 Array.prototype.contains = function(str) {
@@ -250,6 +252,7 @@ function MakeDroppable(element) {
 
       var id = event.target.id.replace('tile_', '').split('-').map(Number)
 
+      $('#tile-over-id').html(id[1] + ',' + id[0])
 
       view.drop_area = {
         dimensions,
@@ -354,7 +357,9 @@ function RenderBlocks(blocks) {
 
             var div = document.createElement("div");
             div.classList.add('block');
-            
+            if (renderedBlock.id == control.block_id) {
+              div.classList.add('editing')
+            }
 
             var css = Object.assign({}, renderedBlock.css);
             css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
@@ -460,7 +465,7 @@ function AdjustEditBlockImage() {
   })
 }
 
-function ClickBlock(event) {
+function SelectBlock(event) {
 
   $('.block').removeClass('editing')
 
@@ -469,8 +474,12 @@ function ClickBlock(event) {
     $(div).addClass('editing')
   });
 
-  PopulateBlockTypeOptions()
-  AdjustEditBlockImage()
+  const block = view.blocks[control.block_id].block;
+  $("#block-type-edit .dimension").val(block.dimension)
+  $("#block-type-edit .y-repeat").val(block.repeat_y)
+  $("#block-type-edit .x-repeat").val(block.repeat_x)
+  $("#block-type-edit .y-dir").val(block.dir_y)
+  $("#block-type-edit .x-dir").val(block.dir_x)
 
   $('a[href="#edit-blocks"]').click()
   $('#ui-id-3').click()
@@ -486,6 +495,7 @@ function ClickBlock(event) {
   $('#block-type-edit .drop-dimensions input').val(view.blocks[control.block_id].block.dimension)
 
   ValidateBlockCSS()
+  AdjustEditBlockImage()
 
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('.object-area-preview.selected').removeClass('selected')
@@ -493,14 +503,18 @@ function ClickBlock(event) {
   for (var object_area of view.blocks[control.block_id].block.object_area) {
     $(`#object-area-${object_area[0]}_${object_area[1]}`).addClass('selected')
   }
-
 }
 
-function PopulateBlockTypeOptions() {
-  const block = view.blocks[control.block_id].block;
-  $("#block-type-edit .dimension").val(block.dimension)
-  $("#block-type-edit .y-repeat").val(block.repeat_y)
-  $("#block-type-edit .x-repeat").val(block.repeat_x)
+function DeselectBlock(event) {
+  $('.block').removeClass('editing')
+  control.block_id = null
+  $('#block-type-edit input').val(0)
+  $('#block-image').css({
+    'background-image': 'initial',
+    'transform': 'initial'
+  });
+  $('.object-area-preview').removeClass('selected')
+  $('#block-css').html('')
 }
 
 function ObjectAreaPreviewMousedown(event) {
@@ -531,13 +545,12 @@ function ObjectAreaPreviewMouseup(event) {
 
 function UpdateBlock() {
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', `/update-block-object-area/${control.block.block.recurrence_id}`)
+  xhr.open('POST', `/update-block-object-area/${view.blocks[control.block_id].block.recurrence_id}`)
   xhr.addEventListener('load', function() {
     var res = JSON.parse(this.response)
-    console.log(res)
     if (res.status == 'success') {
       var newObjectArea = JSON.parse(res.data)
-      UpdateObjectAreaLocalCache(newObjectArea)
+      UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'object_area', newObjectArea)
       LoadView()
     }
   })
@@ -569,9 +582,6 @@ function isValidCSS(rules) {
 }
 
 function UpdateBlockCache(recurrence_id, key, value) {
-  control.blocks.forEach(block => {
-    block[key] = value
-  })
   for (var id in view.blocks) {
     if (view.blocks[id].block.recurrence_id == recurrence_id) {
       view.blocks[id].block[key] = value
@@ -579,10 +589,11 @@ function UpdateBlockCache(recurrence_id, key, value) {
   }
 }
 
-function UpdateObjectAreaLocalCache(newObjectArea) {
+function DeleteFromBlockCache(recurrence_id) {
   for (var id in view.blocks) {
-    if (view.blocks[id].block.recurrence_id == control.block.block.recurrence_id) {
-      view.blocks[id].block.object_area = newObjectArea
+    if (view.blocks[id].block.recurrence_id == recurrence_id) {
+      console.log("deleting block " + id + " from view.blocks...");
+      delete view.blocks[id];
     }
   }
 }
@@ -595,6 +606,79 @@ function ValidateBlockCSS() {
     $("#block-css").addClass('invalid')
   } else {
     $("#block-css").removeClass('invalid')
+  }
+}
+
+function ApplyBlockEdits() {
+
+  // CSS
+  if (!$("#block-css").hasClass('invalid')) {
+    var newCSS = JSON.parse($("#block-css").val());
+    var biea = document.querySelector('#block-image')
+    for (var key in newCSS) {
+      if (key == 'transform') {
+        var css = newCSS[key]
+        css = css.replace(/scale(.+)/, '')
+        biea.style[key] = css
+      } else {
+        biea.style[key] = newCSS[key]
+      }
+    }
+    
+    UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'css', newCSS)
+    $(`.block[data-recurrence_id="${view.blocks[control.block_id].block.recurrence_id}"]`).css(newCSS)
+  }
+
+  // Dimension
+  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'dimension', +$('#block-type-edit .dim').val());
+
+  // Repetition
+  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'repeat_x', +$('#block-type-edit .x-repeat').val());
+  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'repeat_y', +$('#block-type-edit .y-repeat').val());
+
+  // Repetion Direction
+  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'dir_x', +$('#block-type-edit .x-dir').val());
+  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'dir_y', +$('#block-type-edit .y-dir').val());
+
+
+  var xhr = new XMLHttpRequest()
+  xhr.open('POST', `/update-block-style/${view.blocks[control.block_id].block.recurrence_id}`)
+  xhr.addEventListener('load', function() {
+    let res
+    try {
+      res = JSON.parse(this.response)
+      LoadView()
+    } catch (err) {
+      window.reload();
+    }
+  })
+  let payload = Object.assign({}, view.blocks[control.block_id].block)
+  payload.css = JSON.stringify(payload.css)
+  xhr.send(JSON.stringify(
+    payload
+  ))
+
+  if (view.blocks[control.block_id].block.object_area && view.blocks[control.block_id].block.object_area.length) {
+    AddObjectAreas()
+  }
+}
+
+function AddObjectAreas() {
+  $('.object-area').each((_, elem) => elem.remove())
+  if (view.view_block_areas) {
+    for (var b of Object.values(view.blocks)) {
+      var block = b.block
+      var object_area_index = 0
+      for (var y = block.start_y; y < block.start_y + (block.dimension * block.repeat_y); y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
+        for (var x = block.start_x; x < block.start_x + (block.dimension * block.repeat_x); x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
+          let renderedBlock = Object.assign({}, block);
+          renderedBlock.start_x = x
+          renderedBlock.start_y = y
+          const { top, left, width, height } = GetBlockDimensions(renderedBlock)
+          CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
+        }
+      }
+    }
   }
 }
 
@@ -611,43 +695,8 @@ function GetBlockDimensions(block) {
   }
 }
 
-function ApplyBlockCSS() {
-  if (!$("#block-css").hasClass('invalid')) {
-    var newCSS = JSON.parse($("#block-css").val());
-    var biea = document.querySelector('#block-image')
-    for (var key in newCSS) {
-      if (key == 'transform') {
-        var css = newCSS[key]
-        css = css.replace(/scale(.+)/, '')
-        biea.style[key] = css
-      } else {
-        biea.style[key] = newCSS[key]
-      }
-    }
-  }
 
-  UpdateBlockCache(control.blocks[0].recurrence_id, 'css', newCSS)
-
-  $(`.block[data-recurrence_id="${control.blocks[0].recurrence_id}"]`).css(newCSS)
-
-  UpdateBlockStyle()
-
-  if (control.blocks[0].object_area && control.blocks[0].object_area.length) {
-    AddObjectAreas()
-  }
-}
-
-function AddObjectAreas() {
-  $('.object-area').each((_, elem) => elem.remove())
-  if (view.view_block_areas) {
-    for (var b of Object.values(view.blocks)) {
-      const { top, left, width, height } = GetBlockDimensions(b.block)
-      CreateAndAddBlockArea(b.block, top, left, width, height)
-    }
-  }
-}
-
-function CreateAndAddBlockArea(block, top, left, width, height) {
+function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var _transform = block.css.transform
   var transform = {
     scale: 1,
@@ -666,9 +715,6 @@ function CreateAndAddBlockArea(block, top, left, width, height) {
   var view = document.getElementById('view')
   for (var object_area of block.object_area) {
     var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}`;
-    if (document.getElementById(objectAreaId)) {
-      document.getElementById(objectAreaId).remove()
-    }
     var objectArea = document.createElement('div');
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
@@ -687,31 +733,24 @@ function CreateAndAddBlockArea(block, top, left, width, height) {
   }
 }
 
-function UpdateBlockStyle() {
-  var xhr = new XMLHttpRequest()
-  xhr.open('POST', `/update-block-style/${control.blocks[0].recurrence_id}`)
-  xhr.addEventListener('load', function() {
-    let res
-    try {
-      res = JSON.parse(this.response)
-    } catch (err) {
-      window.reload();
-    }
-  })
-  let payload = Object.assign({}, control.blocks[0])
-  payload.css = JSON.stringify(payload.css)
-  xhr.send(JSON.stringify(
-    include(payload, ['recurrence_id', 'dimension', 'css'])
-  ))
-}
-
 function ChangeViewObjectAreas() {
   var doView = $('#view-object-areas').is(':checked')
   view.view_block_areas = doView
   AddObjectAreas()
 }
 
-
+function DeleteBlock() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("DELETE", "/delete-block/" + view.blocks[control.block_id].block.recurrence_id);
+  xhr.addEventListener("load", function() {
+    var res = JSON.parse(this.response);
+    if (res.status == 'success') {
+      DeleteFromBlockCache(view.blocks[control.block_id].block.recurrence_id);
+      LoadView();
+    }
+  });
+  xhr.send();
+}
 
 
 
@@ -732,6 +771,7 @@ $( function() {
   for (var i = 0; i < 400; i++) {
     var tile = document.createElement('div')
     tile.id = `tile_${ Math.floor(i / 20) }-${ i % 20 }`
+    tile.innerHTML = tile.id
     tile.classList.add('tile')
     MakeDroppable(tile)
     view.appendChild(tile)

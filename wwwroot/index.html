@@ -15,6 +15,7 @@
         <div id="view-options">
             <label>View Object Areas</label>
             <input type="checkbox" name="view-object-areas" id="view-object-areas" checked="true">
+            <div id="tile-over-id"> - </div>
         </div>
         <section id="controls">
             <div id="controller">
@@ -48,29 +49,41 @@
                         <div id="image-browse-results"></div>
                     </div>
                     <div id="edit-blocks">
-                        <section>
-                            <div id="block-type-edit">
-                                <div class="drop-dimensions">
-                                    <label>dimension</label><input name="width" class="dim" type="number" class="width" value="1"/>
+                        <section class="inputs">
+                            <section>
+                                <div id="block-type-edit">
+                                    <div class="drop-dimensions">
+                                        <label>dimension</label><input name="width" class="dim" type="number" class="width" value="1"/>
+                                    </div>
+                                    <div>
+                                        <label>y-repeat</label><input name="y-repeat" class="y-repeat" type="number" placeholder="y-repeat" />
+                                    </div>
+                                    <div>
+                                        <label>x-repeat</label><input name="x-repeat" class="x-repeat" type="number" placeholder="x-repeat" />
+                                    </div>
+                                    <div>
+                                        <label>y-dir</label><input name="y-dir" class="y-dir" type="number" placeholder="y-dir" />
+                                    </div>
+                                    <div>
+                                        <label>x-dir</label><input name="x-dir" class="x-dir" type="number" placeholder="x-dir" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label>y-repeat</label><input name="y-repeat" class="y-repeat" type="number" placeholder="y-repeat" />
+                                
+                            </section>
+                            <section>
+                                <div id="block-image-edit-area">
+                                    <div id="block-image-container">
+                                        <div id="block-image"></div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label>x-repeat</label><input name="x-repeat" class="x-repeat" type="number" placeholder="x-repeat" />
+                                <div id="edit-block-css">
+                                    <textarea id="block-css"></textarea>
                                 </div>
-                            </div>
+                            </section>
                         </section>
-                        <section>
-                            <div id="block-image-edit-area">
-                                <div id="block-image-container">
-                                    <div id="block-image"></div>
-                                </div>
-                            </div>
-                            <div id="edit-block-css">
-                                <textarea id="block-css"></textarea>
-                                <button id="apply-block-css" class="button">Apply</button>
-                            </div>
+                        <section class="applications">
+                            <button id="delete-block" class="button">Delete</button>
+                            <button id="apply-block-edits" class="button">Apply</button>
                         </section>
                     </div>
                 </div>
