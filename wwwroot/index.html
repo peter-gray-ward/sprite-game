@@ -14,7 +14,7 @@
         </section>
         <div id="view-options">
             <label>View Object Areas</label>
-            <input type="checkbox" name="view-object-areas" id="view-object-areas" checked="true">
+            <input type="checkbox" name="view-object-areas" id="view-object-areas">
             <div id="tile-over-id"> - </div>
         </div>
         <section id="controls">
@@ -56,6 +56,12 @@
                         <section class="inputs">
                             <section>
                                 <div id="block-type-edit">
+                                    <div>
+                                        <label>y-start</label><input name="y-start" class="y-start" type="number" placeholder="y-start" />
+                                    </div>
+                                    <div>
+                                        <label>x-start</label><input name="x-start" class="x-start" type="number" placeholder="x-start" />
+                                    </div>
                                     <div class="drop-dimensions">
                                         <label>dimension</label><input name="width" class="dim" type="number" class="width" value="1"/>
                                     </div>
@@ -66,13 +72,15 @@
                                         <label>x-repeat</label><input name="x-repeat" class="x-repeat" type="number" placeholder="x-repeat" />
                                     </div>
                                     <div>
-                                        <label>y-dir</label><input name="y-dir" class="y-dir" type="number" placeholder="y-dir" />
+                                        <label>y-dir</label><input disabled name="y-dir" class="y-dir" type="number" placeholder="y-dir" />
                                     </div>
                                     <div>
-                                        <label>x-dir</label><input name="x-dir" class="x-dir" type="number" placeholder="x-dir" />
+                                        <label>x-dir</label><input disabled name="x-dir" class="x-dir" type="number" placeholder="x-dir" />
+                                    </div>
+                                    <div>
+                                        <label>translate object-area</label><input type="checkbox" id="translate-object-area" />
                                     </div>
                                 </div>
-                                
                             </section>
                             <section>
                                 <div id="block-image-edit-area">
@@ -86,8 +94,9 @@
                             </section>
                         </section>
                         <section class="applications">
-                            <button id="delete-block" class="button">Delete</button>
+                            <div id="copy-block" class="button">Copy</div>
                             <button id="apply-block-edits" class="button">Apply</button>
+                            <button id="delete-block" class="button">Delete</button>
                         </section>
                     </div>
                 </div>

@@ -49,7 +49,7 @@ var view = {
   dimension: 20,
   blocks: {},
   drop_area: {},
-  view_block_areas: true
+  view_block_areas: false
 }
 
 var control = {
@@ -114,7 +114,11 @@ function Pixabay(term, page) {
     var xhr = new XMLHttpRequest()
     xhr.open('GET', `https://pixabay.com/api/?key=25483695-93658ed46b8876fc2d6419379&q=${term}&per_page=25&image_type=${image_type}&page=${page}`)
     xhr.addEventListener('load', function() {
-      resolve(JSON.parse(this.response))
+      try {
+        resolve(JSON.parse(this.response))
+      } catch (error) {
+        console.error(error)
+      }
     })
     xhr.send()
   })
@@ -175,6 +179,9 @@ function ScrollPixabayResults(event) {
 
 function ParseBackgroundImageId(element) {
   var id = element.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '');
+  if (id == "") {
+    id = element.style.backgroundImage.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '');
+  }
   if (!/pixabay/.test(id)) {
     return id.split('/').pop()
   } else {
@@ -247,6 +254,7 @@ function MakeDroppable(element) {
     drop: function(event, ui) {
       if (control.dragged_tile_id) {
         ChangeBlockPosition()
+        control.dragged_tile_id = null
       } else if (control.image_id && !control.image_id == "") {
         SaveBlocks()
       } else {
@@ -341,20 +349,20 @@ function GetBlocks() {
   xhr.send()
 }
 
-function calculateAbsoluteOffsets(left, top, width, height, transform, originX = 0, originY = 0) {
-    // Calculate new scaled dimensions
-    const scaledWidth = width * transform.scale;
-    const scaledHeight = height * transform.scale;
+function calculateAbsoluteOffsets(left, top, width, height, transform, originX = 0, originY = 0, translateObjectArea) {
+  // Calculate new scaled dimensions
+  const scaledWidth = width * transform.scale;
+  const scaledHeight = height * transform.scale;
 
-    // Calculate the apparent shift due to scaling
-    const offsetLeft = (transform.scale - 1) * width * originX;
-    const offsetTop = (transform.scale - 1) * height * originY;
+  // Calculate the apparent shift due to scaling
+  const offsetLeft = (transform.scale - 1) * width * originX;
+  const offsetTop = (transform.scale - 1) * height * originY;
 
-    // Adjust the absolute position
-    const newLeft = left - offsetLeft + transform.translateX
-    const newTop = top - offsetTop + transform.translateY
+  // Adjust the absolute position
+  const newLeft = left - offsetLeft + (translateObjectArea ? transform.translateX : 0)
+  const newTop = top - offsetTop + (translateObjectArea ? transform.translateY : 0)
 
-    return { newLeft, newTop };
+  return { newLeft, newTop };
 }
 
 function RenderManageBlocks(blocks) {
@@ -529,6 +537,8 @@ function SelectBlock(event) {
   });
 
   const block = view.blocks[control.block_id].block;
+  $("#block-type-edit .y-start").val(block.start_y)
+  $("#block-type-edit .x-start").val(block.start_x)
   $("#block-type-edit .dimension").val(block.dimension)
   $("#block-type-edit .y-repeat").val(block.repeat_y)
   $("#block-type-edit .x-repeat").val(block.repeat_x)
@@ -540,13 +550,18 @@ function SelectBlock(event) {
 
   var css = Object.assign({}, view.blocks[control.block_id].block.css);
 
-  $('#block-css').html(JSON.stringify(css, null, 1))
+  $('#block-css').val(JSON.stringify(css, null, 1))
 
   css.backgroundImage = `url(/get-image/${view.blocks[control.block_id].block.image_id})`;
-  css.transform = css.transform.replace(/scale\(+.\)/, '')
+  css.transform = css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
 
   $('#block-image').css(css)
   $('#block-type-edit .drop-dimensions input').val(view.blocks[control.block_id].block.dimension)
+
+  let copyBlock = document.getElementById('copy-block')
+  $(copyBlock).css('background-image', css.backgroundImage)
+  copyBlock.dataset.id = block.id
+  MakeDraggable(copyBlock)
 
   ValidateBlockCSS()
   AdjustEditBlockImage()
@@ -702,6 +717,11 @@ function ApplyBlockEdits() {
         biea.style[key] = newCSS[key]
       }
     }
+
+    var css = Object.assign({}, newCSS);
+    css.transform = css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
+
+    $('#block-image').css(css)
     
     UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'css', newCSS)
     $(`.block[data-recurrence_id="${view.blocks[control.block_id].block.recurrence_id}"]`).css(newCSS)
@@ -709,10 +729,13 @@ function ApplyBlockEdits() {
 
   UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, {
     'dimension': +$('#block-type-edit .dim').val(),
+    'start_x': +$('#block-type-edit .x-start').val(),
+    'start_y': +$('#block-type-edit .y-start').val(),
     'repeat_x': +$('#block-type-edit .x-repeat').val(),
     'repeat_y': +$('#block-type-edit .y-repeat').val(),
     'dir_x': +$('#block-type-edit .x-dir').val(),
-    'dir_y': +$('#block-type-edit .y-dir').val()
+    'dir_y': +$('#block-type-edit .y-dir').val(),
+    'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0
   });
 
   var xhr = new XMLHttpRequest()
@@ -803,7 +826,6 @@ function GetBlockDimensions(block) {
   }
 }
 
-
 function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var _transform = block.css.transform
   var transform = {
@@ -827,7 +849,7 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
     
-    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5)
+    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5, block.translate_object_area)
 
     $(objectArea).css({
       width: segment + 'px',
@@ -904,18 +926,7 @@ $( function() {
     })
   }
 
-  $('#tabs').tabs({
-    activate: function(event, ui) {
-      console.log('activate')
-      switch (event.delegateTarget.href.split('/').pop()) {
-      case "#search-images":
-        LoadImageIds()
-        break;
-      default: 
-        break;
-      }
-    }
-  })
+  $('#tabs').tabs()
 
 
   window.addEventListener('resize', function() {

@@ -369,8 +369,29 @@ a.ui-button:active,
 	flex-direction: row;
 	flex-wrap: wrap;
 	align-items: center;
-	justify-content: flex-start;
+	justify-content: space-between;
 	background: #c5c5c5;
+}
+
+#manage-blocks {
+    height: calc(100vh - 10vh);
+    overflow: auto;
+}
+
+#copy-block {
+	height: 75%;
+    display: flex;
+    font-size: 1rem;
+    margin: 0 0.15rem;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 2px 2px black;
+    color: white;
+    background-size: cover;
+}
+
+#copy-block:hover {
+	cursor: grab !important;
 }
 
 .applications button {

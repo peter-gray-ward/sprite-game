@@ -422,6 +422,7 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
                     repeat_x = @repeat_x,
                     dir_y = @dir_y,
                     dir_x = @dir_x,
+                    translate_object_area = @translate_object_area
                     css = @css
                 WHERE recurrence_id = @recurrence_id
             ", connection);
@@ -433,6 +434,7 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
             command.Parameters.AddWithValue("repeat_x", block["repeat_x"].GetInt32());
             command.Parameters.AddWithValue("dir_y", block["dir_y"].GetInt32());
             command.Parameters.AddWithValue("dir_x", block["dir_x"].GetInt32());
+            command.Parameters.AddWithValue("translate_object_area", block["translate_object_area"].GetInt32());
             command.Parameters.AddWithValue("css", block["css"].GetString());
             await command.ExecuteNonQueryAsync();
             context.Response.StatusCode = 200;
