@@ -12,7 +12,8 @@ var events = {
   '#apply-block-edits:click': ApplyBlockEdits,
   '#view-object-areas:change': ChangeViewObjectAreas,
   '#delete-block:click': DeleteBlock,
-  '.tile:click': DeselectBlock
+  '.tile:click': DeselectBlock,
+  '#manage-blocks .tbody .tr:click': SelectManageBlockRow
 }
 
 Array.prototype.contains = function(str) {
@@ -172,7 +173,7 @@ function ScrollPixabayResults(event) {
   }
 }
 
-function ParseImageId(element) {
+function ParseBackgroundImageId(element) {
   var id = element.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '');
   if (!/pixabay/.test(id)) {
     return id.split('/').pop()
@@ -215,14 +216,20 @@ function SaveImage(event, callback) {
 function MakeDraggable(element) {
   $(element).draggable({
     start: function(event, ui) {
-      $('.tile').css('z-index', 999)
-      $(this).addClass('dragging')
+      $('.tile').css('z-index', 999);
+      $(this).addClass('dragging');
+
       $('#image-browse-results, #image-browse-results').css('overflow', 'visible')
-      let image_id = ParseImageId(element)
-      if (/pixabay/.test(image_id)) {
-        control.pixabay_url = image_id
+      
+      if (event.currentTarget.classList.contains('block')) {
+        control.dragged_tile_id = event.currentTarget.id
       } else {
-        control.image_id = image_id
+        let image_id = ParseBackgroundImageId(element)
+        if (/pixabay/.test(image_id)) {
+          control.pixabay_url = image_id
+        } else {
+          control.image_id = image_id
+        }
       }
     },
     stop: function(event, ui) {
@@ -238,7 +245,9 @@ function MakeDraggable(element) {
 function MakeDroppable(element) {
    $(element).droppable({
     drop: function(event, ui) {
-      if (control.image_id && !control.image_id == "") {
+      if (control.dragged_tile_id) {
+        ChangeBlockPosition()
+      } else if (control.image_id && !control.image_id == "") {
         SaveBlocks()
       } else {
         SaveImage(null, function() {
@@ -391,48 +400,47 @@ function RenderBlocks(blocks) {
         (block.dir_x > 0 ? x < block.start_x + (block.dimension * block.repeat_x) : x > block.start_x + (block.dimension * block.repeat_x)); 
         x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
         
-        for (var i = y; i < y + block.dimension; i++) {
-          for (var j = x; j < x + block.dimension; j++) {
-            let renderedBlock = Object.assign({}, block);
-            renderedBlock.start_x = x;
-            renderedBlock.start_y = y;
+        let renderedBlock = Object.assign({}, block);
+        renderedBlock.start_x = x;
+        renderedBlock.start_y = y;
 
-            var div = document.createElement("div");
-            div.classList.add('block');
-            if (renderedBlock.id == control.block_id) {
-              div.classList.add('editing')
-            }
+        var div = document.createElement("div");
+        div.id = renderedBlock.id + '::' + y + '_' + x
+        div.classList.add('block');
+        if (renderedBlock.id == control.block_id) {
+          div.classList.add('editing')
+        }
 
-            var css = Object.assign({}, renderedBlock.css);
-            css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
-            $(div).css(css)
+        var css = Object.assign({}, renderedBlock.css);
+        css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
+        $(div).css(css)
 
-            let startY = renderedBlock.start_y < 0 ? 0 : renderedBlock.start_y
-            let startX = renderedBlock.start_x < 0 ? 0 : renderedBlock.start_x
-            startY = startY > 19 ? 19 : startY
-            startX = startX > 19 ? 19 : startX
-            var startTile = document.getElementById(`tile_${startY}-${startX}`);
-            var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * renderedBlock.dimension
-            var tileHeight = tileWidth
-            div.style.width = tileWidth + 'px'
-            div.style.height = tileHeight + 'px'
-            div.style.top = startTile.offsetTop + 'px'
-            div.style.left = startTile.offsetLeft + 'px'
-            div.dataset.id = block.id
-            div.dataset.recurrence_id = renderedBlock.recurrence_id;
+        let startY = renderedBlock.start_y < 0 ? 0 : renderedBlock.start_y
+        let startX = renderedBlock.start_x < 0 ? 0 : renderedBlock.start_x
+        startY = startY > 19 ? 19 : startY
+        startX = startX > 19 ? 19 : startX
+        var startTile = document.getElementById(`tile_${startY}-${startX}`);
+        var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * renderedBlock.dimension
+        var tileHeight = tileWidth
+        div.style.width = tileWidth + 'px'
+        div.style.height = tileHeight + 'px'
+        div.style.top = startTile.offsetTop + 'px'
+        div.style.left = startTile.offsetLeft + 'px'
+        div.dataset.id = block.id
+        div.dataset.recurrence_id = renderedBlock.recurrence_id;
 
-            document.getElementById('view').appendChild(div)
+        document.getElementById('view').appendChild(div)
 
-            if (!view.blocks[renderedBlock.id]) {
-              view.blocks[renderedBlock.id]  = {
-                block: renderedBlock,
-                divs: []
-              }
-            }
+        MakeDraggable(div)
 
-            view.blocks[renderedBlock.id].divs.push(div)
+        if (!view.blocks[renderedBlock.id]) {
+          view.blocks[renderedBlock.id]  = {
+            block: renderedBlock,
+            divs: []
           }
         }
+
+        view.blocks[renderedBlock.id].divs.push(div)
       }
     }
   }
@@ -563,6 +571,20 @@ function DeselectBlock(event) {
   $('#block-css').html('')
 }
 
+function SelectManageBlockRow(event) {
+  var tr = event.srcElement;
+  while (tr && !tr.classList.contains('tr')) {
+    tr = tr.parentElement;
+  }
+  SelectBlock({
+    srcElement: {
+      dataset: {
+        id: tr.children[0].innerHTML
+      }
+    }
+  })
+}
+
 function ObjectAreaPreviewMousedown(event) {
   event.preventDefault()
   control.object_area_preview.active = true
@@ -628,9 +650,19 @@ function isValidCSS(rules) {
 }
 
 function UpdateBlockCache(recurrence_id, key, value) {
-  for (var id in view.blocks) {
-    if (view.blocks[id].block.recurrence_id == recurrence_id) {
-      view.blocks[id].block[key] = value
+  if (typeof key == 'object') {
+    for (var id in view.blocks) {
+      if (view.blocks[id].block.recurrence_id == recurrence_id) {
+        for (var _key in key) {
+          view.blocks[id].block[_key] = key[_key]
+        }
+      }
+    }
+  } else {
+    for (var id in view.blocks) {
+      if (view.blocks[id].block.recurrence_id == recurrence_id) {
+        view.blocks[id].block[key] = value
+      }
     }
   }
 }
@@ -675,17 +707,13 @@ function ApplyBlockEdits() {
     $(`.block[data-recurrence_id="${view.blocks[control.block_id].block.recurrence_id}"]`).css(newCSS)
   }
 
-  // Dimension
-  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'dimension', +$('#block-type-edit .dim').val());
-
-  // Repetition
-  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'repeat_x', +$('#block-type-edit .x-repeat').val());
-  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'repeat_y', +$('#block-type-edit .y-repeat').val());
-
-  // Repetion Direction
-  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'dir_x', +$('#block-type-edit .x-dir').val());
-  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'dir_y', +$('#block-type-edit .y-dir').val());
-
+  UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, {
+    'dimension': +$('#block-type-edit .dim').val(),
+    'repeat_x': +$('#block-type-edit .x-repeat').val(),
+    'repeat_y': +$('#block-type-edit .y-repeat').val(),
+    'dir_x': +$('#block-type-edit .x-dir').val(),
+    'dir_y': +$('#block-type-edit .y-dir').val()
+  });
 
   var xhr = new XMLHttpRequest()
   xhr.open('POST', `/update-block/${view.blocks[control.block_id].block.recurrence_id}`)
@@ -707,6 +735,40 @@ function ApplyBlockEdits() {
   if (view.blocks[control.block_id].block.object_area && view.blocks[control.block_id].block.object_area.length) {
     AddObjectAreas()
   }
+}
+
+function ChangeBlockPosition() {
+  var dragged_id = control.dragged_tile_id.split('::')
+  dragged_id[1] = dragged_id[1].split('_').map(Number)
+  var block = view.blocks[dragged_id[0]].block
+  var x_diff = view.drop_area.start_x - dragged_id[1][1]
+  var y_diff = view.drop_area.start_y - dragged_id[1][0]
+  var start_y = block.start_y + y_diff
+  var start_x = block.start_x + x_diff
+
+  const edits = {
+    'start_y': start_y,
+    'start_x': start_x
+  }
+
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", "/update-block/" + block.recurrence_id)
+  xhr.addEventListener('load', function() {
+    var res = JSON.parse(this.response);
+    if (res.status == 'success') {
+      UpdateBlockCache(block.recurrence_id, edits)
+      LoadView()
+    }
+  });
+  xhr.send(JSON.stringify({
+    ...edits,
+    dimension: block.dimension,
+    repeat_x: block.repeat_x,
+    repeat_y: block.repeat_y,
+    dir_x: block.dir_x,
+    dir_y: block.dir_y,
+    css: JSON.stringify(block.css)
+  }))
 }
 
 function AddObjectAreas() {

@@ -81,10 +81,16 @@ main {
 	flex-direction: row;
 }
 
+.tbody .tr:hover {
+	cursor: pointer;
+	background: lightyellow;
+}
+
 .th, .td {
 	width: calc(100% / 3);
 	align-items: center;
-	justify-content: start;
+	justify-content: center;
+    background-position: 50% 50%;
 	padding: 0.1rem;
 	overflow: hidden;
 }
