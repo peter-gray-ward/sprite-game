@@ -401,7 +401,7 @@ app.MapDelete("/delete-block/{recurrence_id}", async context =>
     }
 });
 
-app.MapPost("/update-block-style/{recurrence_id}", async context =>
+app.MapPost("/update-block/{recurrence_id}", async context =>
 {
     string username = context.Session.GetString("name");
     try
@@ -419,7 +419,7 @@ app.MapPost("/update-block-style/{recurrence_id}", async context =>
                     start_y = @start_y,
                     start_x = @start_x,
                     repeat_y = @repeat_y,
-                    repeat_x = @repeat_y,
+                    repeat_x = @repeat_x,
                     dir_y = @dir_y,
                     dir_x = @dir_x,
                     css = @css

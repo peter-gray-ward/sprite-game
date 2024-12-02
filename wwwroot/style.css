@@ -35,6 +35,7 @@ main {
 	color: rgba(255, 255, 255, 0.3);
 	display: flex;
 	align-items: center;
+	user-select: none;
 	justify-content: center;
 }
 
@@ -47,6 +48,46 @@ main {
 	opacity: 0.5;
 }
 
+
+.table, .thead, .tr, .th, .td {
+	display: flex;
+	gap: 0;
+	margin: 0;
+}
+
+.table, .thead, .tr {
+	width: 100%;
+}
+
+.td.image {
+	width: 30%;
+	background-size: contain;
+    background-repeat: no-repeat;
+    width: 5vw;
+    height: 5vw;
+}
+
+.table {
+	flex-direction: column;
+	gap: 0;
+	margin: 0;
+}
+
+.thead {
+	flex-direction: column;
+}
+
+.tr {
+	flex-direction: row;
+}
+
+.th, .td {
+	width: calc(100% / 3);
+	align-items: center;
+	justify-content: start;
+	padding: 0.1rem;
+	overflow: hidden;
+}
 
 #controls {
 	height: 100vh;
@@ -298,7 +339,7 @@ a.ui-button:active,
 	border: 2px dotted red;
 }
 
-#edit-blocks {
+#edit-block {
 	background: aliceblue;
 	width: 100%;
 	height: calc(100vh - 10vh);
@@ -307,7 +348,7 @@ a.ui-button:active,
 	flex-wrap: wrap;
 }
 
-#edit-blocks .inputs {
+#edit-block .inputs {
 	width: 100%;
 	height: calc(100% - 5vh);
 	display: flex;
@@ -315,7 +356,7 @@ a.ui-button:active,
 	flex-wrap: wrap;
 }
 
-#edit-blocks .applications {
+#edit-block .applications {
 	width: 100%;
 	height: 5vh;
 	display: flex;
@@ -330,7 +371,7 @@ a.ui-button:active,
 	margin: 0.1rem;
 }
 
-#edit-blocks section {
+#edit-block section {
 	height: 100%;
 	width: 50%;
 	display: flex;
@@ -393,7 +434,7 @@ a.ui-button:active,
 #block-image-container {
 	position: absolute;
     /* top: 3vw; */
-    height: calc(50vh - 5vh) !important;
+/*    height: calc(50vh - 5vh) !important;*/
     width: 57%;
     left: 50%;
     z-index: 1;

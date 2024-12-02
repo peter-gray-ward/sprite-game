@@ -182,6 +182,7 @@ function ParseImageId(element) {
 }
 
 function SaveImage(event, callback) {
+  var tag = event ? event.srcElement.dataset.tag : $("#pixabay-search").val()
   var url = event ? event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '') : control.pixabay_url
   var xhr = new XMLHttpRequest()
   xhr.open('POST', '/save-image')
@@ -197,6 +198,9 @@ function SaveImage(event, callback) {
       if (event) {
         $(event.srcElement).addClass('saved')
       }
+      if (!control.image_urls[tag]) {
+        LoadImageIds()
+      }
       if (callback) {
         callback()
       }
@@ -204,13 +208,14 @@ function SaveImage(event, callback) {
   })
   xhr.send(JSON.stringify({
     url,
-    tag: event ? event.srcElement.dataset.tag : $("#pixabay-search").val()
+    tag
   }))
 }
 
 function MakeDraggable(element) {
   $(element).draggable({
     start: function(event, ui) {
+      $('.tile').css('z-index', 999)
       $(this).addClass('dragging')
       $('#image-browse-results, #image-browse-results').css('overflow', 'visible')
       let image_id = ParseImageId(element)
@@ -221,6 +226,7 @@ function MakeDraggable(element) {
       }
     },
     stop: function(event, ui) {
+      $('.tile').css('z-index', 'initial')
       $(this).removeClass('dragging')
       $('#image-browse-results, #image-browse-results').css('overflow', 'auto')
       $('.tile').removeClass('over')
@@ -232,7 +238,6 @@ function MakeDraggable(element) {
 function MakeDroppable(element) {
    $(element).droppable({
     drop: function(event, ui) {
-      console.log(view.drop_area)
       if (control.image_id && !control.image_id == "") {
         SaveBlocks()
       } else {
@@ -275,8 +280,6 @@ function MakeDroppable(element) {
           }
         }
       }
-
-
     }
   })
 }
@@ -321,7 +324,8 @@ function GetBlocks() {
         block.object_area = JSON.parse(block.object_area)
         block.css = JSON.parse(block.css)
         return block
-      })
+      });
+      RenderManageBlocks(blocks)
       RenderBlocks(blocks)
     }
   })
@@ -344,11 +348,49 @@ function calculateAbsoluteOffsets(left, top, width, height, scaleX, scaleY, orig
     return { newLeft, newTop };
 }
 
+function RenderManageBlocks(blocks) {
+  var keys = ['id', 'recurrence_id', 'image_id']
+  document.getElementById("manage-blocks").innerHTML = `
+    <div class="table">
+      <div class="thead">
+        <div class="tr">
+          ${
+            keys.map(key => `<div class="th">${key}</div>`).join('')
+          }
+        </div>
+      </div>
+      <div class="tbody">
+        ${
+          blocks.map(block => `
+            <div class="tr">
+              ${
+                keys.map(key => {
+                  switch (key) {
+                  case 'image_id': return `<div class="td image" style="background-image: url(/get-image/${block[key]})"></div>`
+                  default: return `<div class="td">${block[key]}</div>`
+                  }
+                }).join('')
+              }
+            </div>
+          `).join('')
+        }
+      </div>
+    </div>
+  `;
+}
+
 function RenderBlocks(blocks) {
   $('.object-area').remove()
   for (var block of blocks) {
-    for (var y = block.start_y; y < block.start_y + (block.dimension * block.repeat_y); y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
-      for (var x = block.start_x; x < block.start_x + (block.dimension * block.repeat_x); x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
+    
+    for (var y = block.start_y; 
+      (block.dir_y > 0 ? y < block.start_y + (block.dimension * block.repeat_y) : y > block.start_y + (block.dimension * block.repeat_y)); 
+      y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
+      
+      for (var x = block.start_x; 
+        (block.dir_x > 0 ? x < block.start_x + (block.dimension * block.repeat_x) : x > block.start_x + (block.dimension * block.repeat_x)); 
+        x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
+        
         for (var i = y; i < y + block.dimension; i++) {
           for (var j = x; j < x + block.dimension; j++) {
             let renderedBlock = Object.assign({}, block);
@@ -365,7 +407,11 @@ function RenderBlocks(blocks) {
             css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
             $(div).css(css)
 
-            var startTile = document.getElementById(`tile_${renderedBlock.start_y}-${renderedBlock.start_x}`);
+            let startY = renderedBlock.start_y < 0 ? 0 : renderedBlock.start_y
+            let startX = renderedBlock.start_x < 0 ? 0 : renderedBlock.start_x
+            startY = startY > 19 ? 19 : startY
+            startX = startX > 19 ? 19 : startX
+            var startTile = document.getElementById(`tile_${startY}-${startX}`);
             var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * renderedBlock.dimension
             var tileHeight = tileWidth
             div.style.width = tileWidth + 'px'
@@ -481,7 +527,7 @@ function SelectBlock(event) {
   $("#block-type-edit .y-dir").val(block.dir_y)
   $("#block-type-edit .x-dir").val(block.dir_x)
 
-  $('a[href="#edit-blocks"]').click()
+  $('a[href="#edit-block"]').click()
   $('#ui-id-3').click()
 
   var css = Object.assign({}, view.blocks[control.block_id].block.css);
@@ -642,14 +688,14 @@ function ApplyBlockEdits() {
 
 
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', `/update-block-style/${view.blocks[control.block_id].block.recurrence_id}`)
+  xhr.open('POST', `/update-block/${view.blocks[control.block_id].block.recurrence_id}`)
   xhr.addEventListener('load', function() {
     let res
     try {
       res = JSON.parse(this.response)
       LoadView()
     } catch (err) {
-      window.reload();
+      console.error(err)
     }
   })
   let payload = Object.assign({}, view.blocks[control.block_id].block)
@@ -746,6 +792,7 @@ function DeleteBlock() {
     var res = JSON.parse(this.response);
     if (res.status == 'success') {
       DeleteFromBlockCache(view.blocks[control.block_id].block.recurrence_id);
+      DeselectBlock()
       LoadView();
     }
   });
