@@ -6,9 +6,12 @@ namespace App
 	public class Player
 	{
 		public string access_token { get; set; } = String.Empty;
+		public string name { get; set; } = "";
 		public int level { get; set; } = 0;
 		public double position_x { get; set; } = 0.0;
 		public double position_y { get; set; } = 0.0;
+		public string direction { get; set; } = "";
+		public int z_index { get; set; } = 0;
 		public async Task<string> Register(string connectionString, string name, string password)
 		{
 			try
@@ -49,7 +52,8 @@ namespace App
 					await connection.OpenAsync();
 
 					var command = new NpgsqlCommand(@"
-						SELECT name, level, position_x, position_y, password FROM Player WHERE name = @name
+						SELECT name, level, position_x, position_y, password, direction, z_index
+						FROM Player WHERE name = @name
 					", connection);
 
 					command.Parameters.AddWithValue("@name", name);
@@ -65,10 +69,14 @@ namespace App
 							var token = Guid.NewGuid();
 
 							this.access_token = token.ToString();
-
+							this.name = reader.GetString(0);
 							this.level = reader.GetInt32(1);
-							this.position_x = reader.GetDouble(3);
+							this.position_x = reader.GetDouble(2);
 							this.position_y = reader.GetDouble(3);
+							this.direction = reader.GetString(5);
+							this.z_index = reader.GetInt32(6);
+
+							Console.WriteLine("User is moving " + this.direction);
 
 							return true;
 						}

@@ -25,6 +25,10 @@ main {
 	gap: none;
 }
 
+.sprite {
+	position: absolute;
+}
+
 .tile {
 	width: 5%;
 	height: 5%;

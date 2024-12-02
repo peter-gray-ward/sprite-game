@@ -30,7 +30,9 @@ namespace App
 						image_id UUID,
 						css TEXT,
 						dimension INT,
-						object_area TEXT
+						object_area TEXT,
+						translate_object_area INT NOT NULL,
+						random_rotation INT NOT NULL
 					);
 
 					DROP TABLE IF EXISTS Player;
@@ -39,7 +41,9 @@ namespace App
 						password TEXT NOT NULL,
 						level INT NOT NULL,
 						position_x FLOAT,
-						position_y FLOAT
+						position_y FLOAT,
+						direction TEXT NOT NULL,
+						z_index INT NOT NULL
 					);
 
 					DROP TABLE IF EXISTS Item;

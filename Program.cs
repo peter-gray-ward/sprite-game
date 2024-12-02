@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Data;
 using System.Linq;
+using System.Reflection;
 using System;
 using System.IO;
 using System.Text;
@@ -87,37 +88,19 @@ app.MapPost("/login", async context =>
 
         if (player.access_token != String.Empty)
         {
-            
+
             context.Session.SetString("access_token", player.access_token);
             context.Session.SetString("name", credentials["name"]);
 
-            context.Response.Cookies.Append("name", credentials["name"], new CookieOptions
+            foreach (PropertyInfo prop in player.GetType().GetProperties())
             {
-                HttpOnly = false, // Accessible via JavaScript if needed
-                Secure = false,
-                SameSite = SameSiteMode.Lax
-            });
-
-            context.Response.Cookies.Append("level", player.level.ToString(), new CookieOptions
-            {
-                HttpOnly = false, // Accessible via JavaScript if needed
-                Secure = false,
-                SameSite = SameSiteMode.Lax
-            });
-
-            context.Response.Cookies.Append("position_x", player.position_x.ToString(), new CookieOptions
-            {
-                HttpOnly = false, // Accessible via JavaScript if needed
-                Secure = false,
-                SameSite = SameSiteMode.Lax
-            });
-
-            context.Response.Cookies.Append("position_y", player.position_y.ToString(), new CookieOptions
-            {
-                HttpOnly = false, // Accessible via JavaScript if needed
-                Secure = false,
-                SameSite = SameSiteMode.Lax
-            });
+                context.Response.Cookies.Append(prop.Name, prop.GetValue(player).ToString(), new CookieOptions
+                {
+                    HttpOnly = false, // Accessible via JavaScript if needed
+                    Secure = false,
+                    SameSite = SameSiteMode.Lax
+                });
+            }
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", 
                 level = player.level,
@@ -422,7 +405,8 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
                     repeat_x = @repeat_x,
                     dir_y = @dir_y,
                     dir_x = @dir_x,
-                    translate_object_area = @translate_object_area
+                    translate_object_area = @translate_object_area,
+                    random_rotation = @random_rotation,
                     css = @css
                 WHERE recurrence_id = @recurrence_id
             ", connection);
@@ -435,6 +419,7 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
             command.Parameters.AddWithValue("dir_y", block["dir_y"].GetInt32());
             command.Parameters.AddWithValue("dir_x", block["dir_x"].GetInt32());
             command.Parameters.AddWithValue("translate_object_area", block["translate_object_area"].GetInt32());
+            command.Parameters.AddWithValue("random_rotation", block["random_rotation"].GetInt32());
             command.Parameters.AddWithValue("css", block["css"].GetString());
             await command.ExecuteNonQueryAsync();
             context.Response.StatusCode = 200;

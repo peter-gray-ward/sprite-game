@@ -13,7 +13,10 @@ var events = {
   '#view-object-areas:change': ChangeViewObjectAreas,
   '#delete-block:click': DeleteBlock,
   '.tile:click': DeselectBlock,
-  '#manage-blocks .tbody .tr:click': SelectManageBlockRow
+  '#manage-blocks .tbody .tr:click': SelectManageBlockRow,
+
+  'window:keydown': KeyDown,
+  'window:keyup': KeyUp
 }
 
 Array.prototype.contains = function(str) {
@@ -49,7 +52,21 @@ var view = {
   dimension: 20,
   blocks: {},
   drop_area: {},
-  view_block_areas: false
+  view_block_areas: false,
+  sprite: {
+    name: 'Gandalf',
+    el: undefined,
+    left: -6,
+    top: 0,
+    direction: undefined,
+    forward: {
+      map: [
+        -17, -517, 30, 57,
+        // wait a second....
+      ],
+      index: 0
+    }
+  }
 }
 
 var control = {
@@ -61,9 +78,7 @@ var control = {
   needsUpdate: true
 }
 
-var player = {
-
-}
+var player = {}
 
 function getCookieValue(cookieName) {
   const cookies = document.cookie.split(';'); // Split all cookies into an array
@@ -91,18 +106,22 @@ function Logout() {
 function AddEvents(selector) {
   for (var key in events) {
     var split_key = key.split(':')
-    if (selector) {
-      if (split_key[0] == selector) {
+    if (split_key[0] == 'window') {
+      window.addEventListener(split_key[1], events[key]);
+    } else {
+      if (selector) {
+        if (split_key[0] == selector) {
+          document.querySelectorAll(split_key[0]).forEach(element => {
+            element.removeEventListener(split_key[1], events[key])
+            element.addEventListener(split_key[1], events[key])
+          })
+        }
+      } else {
         document.querySelectorAll(split_key[0]).forEach(element => {
           element.removeEventListener(split_key[1], events[key])
           element.addEventListener(split_key[1], events[key])
         })
       }
-    } else {
-      document.querySelectorAll(split_key[0]).forEach(element => {
-        element.removeEventListener(split_key[1], events[key])
-        element.addEventListener(split_key[1], events[key])
-      })
     }
   }
 }
@@ -397,7 +416,6 @@ function RenderManageBlocks(blocks) {
 }
 
 function RenderBlocks(blocks) {
-  $('.object-area').remove()
   for (var block of blocks) {
     
     for (var y = block.start_y; 
@@ -421,6 +439,18 @@ function RenderBlocks(blocks) {
 
         var css = Object.assign({}, renderedBlock.css);
         css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
+        if (block.random_rotation > 0) {
+          var randomRotation = 'rotate(' + Math.floor(Math.random() * 4) * 90 + 'deg)';
+          
+          if (/rotate\(.+\)/.test(block.css.transform)) {
+            block.css.transform = block.css.transform.replace(/rotate\(.+\)/, randomRotation);
+          } else {
+            block.css.transform += ' ' + randomRotation;
+          }
+        }
+
+
+
         $(div).css(css)
 
         let startY = renderedBlock.start_y < 0 ? 0 : renderedBlock.start_y
@@ -461,14 +491,37 @@ function LoadView() {
   $('.block').each(function(_, elem) {
     elem.remove()
   })
+  $('#gandalf').remove()
   if (control.needsUpdate) {
     GetBlocks()
   } else {
     RenderBlocks(Object.values(view.blocks).map(block => block.block))
   }
-  $('.object-area').css('height', $(".object-area").css('width'))
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('#block-image-container').css('height', $("#block-image-edit-area").css('width'))
+
+  LoadSprite()
+}
+
+function LoadSprite() {
+  view.sprite.direction = player.direction
+  view.sprite.el = document.createElement("div")
+  view.sprite.el.id = "gandalf"
+  view.sprite.el.classList.add('sprite')
+  document.querySelector('main').appendChild(view.sprite.el)
+  RenderSprite(view.sprite.el)
+}
+
+function RenderSprite(sprite) {
+  $(sprite).css({
+    background: `url(/Gandalf.png) no-repeat`,
+    backgroundPosition: `${view.sprite.map[view.sprite.direction].left}px ${view.sprite.map[view.sprite.direction].top}px`,
+    width: '56px',
+    height: '56px',
+    top: player.position_y + 'px',
+    left: player.position_x + 'px',
+    zIndex: +player.z_index
+  });
 }
 
 function LoadImageIds() {
@@ -544,6 +597,7 @@ function SelectBlock(event) {
   $("#block-type-edit .x-repeat").val(block.repeat_x)
   $("#block-type-edit .y-dir").val(block.dir_y)
   $("#block-type-edit .x-dir").val(block.dir_x)
+  $("#block-type-edit #translate-object-area").prop('checked', block.translate_object_area > 0)
 
   $('a[href="#edit-block"]').click()
   $('#ui-id-3').click()
@@ -735,7 +789,8 @@ function ApplyBlockEdits() {
     'repeat_y': +$('#block-type-edit .y-repeat').val(),
     'dir_x': +$('#block-type-edit .x-dir').val(),
     'dir_y': +$('#block-type-edit .y-dir').val(),
-    'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0
+    'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0,
+    'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0
   });
 
   var xhr = new XMLHttpRequest()
@@ -753,11 +808,7 @@ function ApplyBlockEdits() {
   payload.css = JSON.stringify(payload.css)
   xhr.send(JSON.stringify(
     payload
-  ))
-
-  if (view.blocks[control.block_id].block.object_area && view.blocks[control.block_id].block.object_area.length) {
-    AddObjectAreas()
-  }
+  ));
 }
 
 function ChangeBlockPosition() {
@@ -795,7 +846,7 @@ function ChangeBlockPosition() {
 }
 
 function AddObjectAreas() {
-  $('.object-area').each((_, elem) => elem.remove())
+  $('.object-area').remove();
   if (view.view_block_areas) {
     for (var b of Object.values(view.blocks)) {
       var block = b.block
@@ -884,6 +935,21 @@ function DeleteBlock() {
 }
 
 
+function KeyDown(event) {
+  // switch (event.key.toLowerCase()) {
+  // case 'arrowup':
+  //   view.sprite.map.forward.left -= 66;
+  //   if (view.sprite.map.forward.left < -528) {
+  //     view.sprite.map.forward.left = 0
+  //   }
+  //   break;
+  // default:break;
+  // }
+  
+  // RenderSprite(view.sprite.el)
+}
+
+function KeyUp(event) {}
 
 
 
@@ -893,7 +959,9 @@ $( function() {
     name: getCookieValue("name"),
     level: getCookieValue("level"),
     position_x: getCookieValue("position_x"),
-    position_y: getCookieValue("position_y")
+    position_y: getCookieValue("position_y"),
+    direction: getCookieValue("direction"),
+    z_index: getCookieValue("z_index")
   }
 
   document.querySelector("#log p").innerHTML = Object.keys(player).map(key => `<div><strong>${key}:</strong> <span>${player[key]}</span></div>`).join('')
@@ -934,10 +1002,5 @@ $( function() {
   })
 
 } )
-
-
-
-
-
 
 
