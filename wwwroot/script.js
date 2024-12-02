@@ -56,14 +56,23 @@ var view = {
   sprite: {
     name: 'Gandalf',
     el: undefined,
-    left: -6,
+    left: 0,
     top: 0,
     direction: undefined,
     forward: {
-      map: [
-        -17, -517, 30, 57,
-        // wait a second....
-      ],
+      top: -517,
+      index: 0
+    },
+    left: {
+      top: -582,
+      index: 0
+    },
+    back: {
+      top: -646,
+      index: 0
+    },
+    right: {
+      top: -710,
       index: 0
     }
   }
@@ -509,15 +518,15 @@ function LoadSprite() {
   view.sprite.el.id = "gandalf"
   view.sprite.el.classList.add('sprite')
   document.querySelector('main').appendChild(view.sprite.el)
-  RenderSprite(view.sprite.el)
+  RenderGandalf()
 }
 
-function RenderSprite(sprite) {
-  $(sprite).css({
+function RenderGandalf() {
+  $(view.sprite.el).css({
     background: `url(/Gandalf.png) no-repeat`,
-    backgroundPosition: `${view.sprite.map[view.sprite.direction].left}px ${view.sprite.map[view.sprite.direction].top}px`,
-    width: '56px',
-    height: '56px',
+    backgroundPosition: `${(view.sprite[view.sprite.direction].index * -64) + -2}px ${view.sprite[view.sprite.direction].top}px`,
+    width: '60px',
+    height: '60px',
     top: player.position_y + 'px',
     left: player.position_x + 'px',
     zIndex: +player.z_index
@@ -936,20 +945,40 @@ function DeleteBlock() {
 
 
 function KeyDown(event) {
-  // switch (event.key.toLowerCase()) {
-  // case 'arrowup':
-  //   view.sprite.map.forward.left -= 66;
-  //   if (view.sprite.map.forward.left < -528) {
-  //     view.sprite.map.forward.left = 0
-  //   }
-  //   break;
-  // default:break;
-  // }
-  
-  // RenderSprite(view.sprite.el)
+  switch (event.key.toLowerCase()) {
+  case 'arrowleft':
+    view.sprite.direction = 'left'
+    break;
+  case 'arrowright':
+    view.sprite.direction = 'right'
+    break;
+  case 'arrowup':
+    view.sprite.direction = 'forward'
+    break;
+  case 'arrowdown':
+    view.sprite.direction = 'back'
+    break;
+  case 'shift':
+    view.sprite.shift = true
+    break;
+  default:break;
+  }
+
+  view.sprite[view.sprite.direction].index++
+  if (view.sprite[view.sprite.direction].index > 8) {
+    view.sprite[view.sprite.direction].index = 0
+  }
+
+  RenderGandalf(view.sprite.el)
 }
 
-function KeyUp(event) {}
+function KeyUp(event) {
+  switch (event.key.toLowerCase()) {
+  case 'shift':
+    view.sprite.shift = false;
+  default:break;
+  }
+}
 
 
 

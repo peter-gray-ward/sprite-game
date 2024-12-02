@@ -27,6 +27,7 @@ main {
 
 .sprite {
 	position: absolute;
+	border: 1px solid;
 }
 
 .tile {
