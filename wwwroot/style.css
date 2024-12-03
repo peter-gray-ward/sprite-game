@@ -27,7 +27,7 @@ main {
 
 .sprite {
 	position: absolute;
-	border: 1px solid;
+	z-index: 999;
 }
 
 .tile {
@@ -257,6 +257,7 @@ a.ui-button:active,
 	height: 5vh;
 	display: flex;
 	flex-direction: row;
+	flex-wrap: wrap;
 	justify-content: space-around;
 	align-items: center;
 }
@@ -535,7 +536,7 @@ a.ui-button:active,
 }
 
 
-@media (max-width: 1093px) {
+@media (max-width: 1015px) {
 	.ui-tabs .ui-tabs-nav .ui-tabs-anchor {
 		font-size: 1.05vw;
 	}
@@ -547,13 +548,15 @@ a.ui-button:active,
 	}
 }
 
+@media (max-width: 1160px) {
+	#search-bar, #href-input-bar {
+		font-size: 0.6rem;
+	}
+}
+
 @media (max-width: 1000px) {
 	.ui-tabs .ui-tabs-nav .ui-tabs-anchor {
 		font-size: 1vw;
-	}
-
-	.drop-options label {
-		display: none;
 	}
 }
 

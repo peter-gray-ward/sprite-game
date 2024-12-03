@@ -56,25 +56,49 @@ var view = {
   sprite: {
     name: 'Gandalf',
     el: undefined,
-    left: 0,
-    top: 0,
+    position: {
+      left: 0,
+      top: 0
+    },
+    keys: new Set(),
+    key_values: {
+      arrowup: {
+        top: -1,
+      },
+      arrowright: {
+        left: 1
+      },
+      arrowdown: {
+        top: 1
+      },
+      arrowleft: {
+        left: -1
+      }
+    },
+    rotation: {
+      up: {
+        top: -517,
+        index: 0
+      },
+      left: {
+        top: -582,
+        index: 0
+      },
+      down: {
+        top: -646,
+        index: 0
+      },
+      right: {
+        top: -710,
+        index: 0
+      }
+    },
+    width: 60,
+    height: 60,
+    section: -64,
+    offset: -2,
     direction: undefined,
-    forward: {
-      top: -517,
-      index: 0
-    },
-    left: {
-      top: -582,
-      index: 0
-    },
-    back: {
-      top: -646,
-      index: 0
-    },
-    right: {
-      top: -710,
-      index: 0
-    }
+    z_index: 0
   }
 }
 
@@ -462,6 +486,10 @@ function RenderBlocks(blocks) {
 
         $(div).css(css)
 
+        if (block.ground) {
+          $(div).css('z-index', 1)
+        }
+
         let startY = renderedBlock.start_y < 0 ? 0 : renderedBlock.start_y
         let startX = renderedBlock.start_x < 0 ? 0 : renderedBlock.start_x
         startY = startY > 19 ? 19 : startY
@@ -487,6 +515,7 @@ function RenderBlocks(blocks) {
           }
         }
 
+        div.dataset.zIndex = +$(div).css("z-index");
         view.blocks[renderedBlock.id].divs.push(div)
       }
     }
@@ -522,15 +551,53 @@ function LoadSprite() {
 }
 
 function RenderGandalf() {
+  let isMoving = false;
+  for (var key of view.sprite.keys) {
+    if (view.sprite.key_values[key]) {
+      isMoving = true;
+      for (var pos in view.sprite.key_values[key]) {
+        view.sprite.position[pos] += view.sprite.key_values[key][pos];
+      }
+    }
+  }
+
+  if (isMoving && view.sprite.direction) {
+    view.sprite.rotation[view.sprite.direction].index++;
+    if (view.sprite.rotation[view.sprite.direction].index > 8) {
+      view.sprite.rotation[view.sprite.direction].index = 0;
+    }
+  }
+
+  const spriteDirection = view.sprite.direction;
+
   $(view.sprite.el).css({
     background: `url(/Gandalf.png) no-repeat`,
-    backgroundPosition: `${(view.sprite[view.sprite.direction].index * -64) + -2}px ${view.sprite[view.sprite.direction].top}px`,
-    width: '60px',
-    height: '60px',
-    top: player.position_y + 'px',
-    left: player.position_x + 'px',
-    zIndex: +player.z_index
+    backgroundPosition: `${(view.sprite.rotation[spriteDirection].index * view.sprite.section) + view.sprite.offset}px ${view.sprite.rotation[spriteDirection].top}px`,
+    width: `${view.sprite.width}px`,
+    height: `${view.sprite.height}px`,
+    top: `${view.sprite.position.top}px`,
+    left: `${view.sprite.position.left}px`,
+    zIndex: view.sprite.z_index
   });
+
+  const spriteBottom = view.sprite.position.top + 60
+
+  for (var id in view.blocks) {
+    if (!view.blocks[id].block.ground) {
+      const block = view.blocks[id]
+      for (var div of block.divs) {
+        let zIndex = +$(div).css('z-index')
+        let bottomEdge = +$(div).css('top').split('px')[0] + +$(div).css('height').split('px')[0];
+        if (bottomEdge > spriteBottom) {
+          $(div).css('z-index', zIndex + view.sprite.z_index);
+        } else {
+          $(div).css('z-index', +div.dataset.zIndex);
+        }
+      }
+    }
+  }
+
+  window.requestAnimationFrame(RenderGandalf);
 }
 
 function LoadImageIds() {
@@ -607,6 +674,8 @@ function SelectBlock(event) {
   $("#block-type-edit .y-dir").val(block.dir_y)
   $("#block-type-edit .x-dir").val(block.dir_x)
   $("#block-type-edit #translate-object-area").prop('checked', block.translate_object_area > 0)
+  $("#block-type-edit #random-rotation").prop('checked', block.random_rotation > 0)
+  $("#block-type-edit #ground").prop('checked', block.ground > 0)
 
   $('a[href="#edit-block"]').click()
   $('#ui-id-3').click()
@@ -799,7 +868,8 @@ function ApplyBlockEdits() {
     'dir_x': +$('#block-type-edit .x-dir').val(),
     'dir_y': +$('#block-type-edit .y-dir').val(),
     'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0,
-    'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0
+    'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0,
+    'ground': $('#ground').is(':checked') ? 1 : 0
   });
 
   var xhr = new XMLHttpRequest()
@@ -945,41 +1015,37 @@ function DeleteBlock() {
 
 
 function KeyDown(event) {
-  switch (event.key.toLowerCase()) {
-  case 'arrowleft':
-    view.sprite.direction = 'left'
-    break;
-  case 'arrowright':
-    view.sprite.direction = 'right'
-    break;
-  case 'arrowup':
-    view.sprite.direction = 'forward'
-    break;
-  case 'arrowdown':
-    view.sprite.direction = 'back'
-    break;
-  case 'shift':
-    view.sprite.shift = true
-    break;
-  default:break;
+  const eventKey = event.key.toLowerCase();
+
+  if (view.sprite.key_values[eventKey]) {
+    view.sprite.keys.add(eventKey);
+    view.sprite.direction = eventKey.replace('arrow', '');
   }
 
-  view.sprite[view.sprite.direction].index++
-  if (view.sprite[view.sprite.direction].index > 8) {
-    view.sprite[view.sprite.direction].index = 0
+  if (eventKey === 'shift') {
+    view.sprite.shift = true;
   }
-
-  RenderGandalf(view.sprite.el)
 }
 
 function KeyUp(event) {
-  switch (event.key.toLowerCase()) {
-  case 'shift':
-    view.sprite.shift = false;
-  default:break;
-  }
-}
+  const eventKey = event.key.toLowerCase();
 
+  if (eventKey === 'shift') {
+    view.sprite.shift = false;
+  }
+
+  if (view.sprite.keys.has(eventKey)) {
+    view.sprite.keys.delete(eventKey);
+
+    const remainingKeys = Array.from(view.sprite.keys);
+    if (remainingKeys.length > 0) {
+      const lastKey = remainingKeys[remainingKeys.length - 1];
+      view.sprite.direction = lastKey.replace('arrow', '');
+    }
+  }
+
+  view.sprite.rotation[view.sprite.direction].index = 0
+}
 
 
 $( function() {
@@ -992,6 +1058,10 @@ $( function() {
     direction: getCookieValue("direction"),
     z_index: getCookieValue("z_index")
   }
+
+  window.view.sprite.position.left = +player.position_x
+  window.view.sprite.position.top = +player.position_y
+  window.view.sprite.z_index = +player.z_index
 
   document.querySelector("#log p").innerHTML = Object.keys(player).map(key => `<div><strong>${key}:</strong> <span>${player[key]}</span></div>`).join('')
 
@@ -1029,6 +1099,9 @@ $( function() {
   window.addEventListener('resize', function() {
     LoadView();
   })
+
+
+  RenderGandalf(window.view.sprite.el)
 
 } )
 

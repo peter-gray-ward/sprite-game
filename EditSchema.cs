@@ -32,7 +32,8 @@ namespace App
 						dimension INT,
 						object_area TEXT,
 						translate_object_area INT NOT NULL,
-						random_rotation INT NOT NULL
+						random_rotation INT NOT NULL,
+						ground INT NOT NULL
 					);
 
 					DROP TABLE IF EXISTS Player;

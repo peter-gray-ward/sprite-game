@@ -407,6 +407,7 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
                     dir_x = @dir_x,
                     translate_object_area = @translate_object_area,
                     random_rotation = @random_rotation,
+                    ground = @ground,
                     css = @css
                 WHERE recurrence_id = @recurrence_id
             ", connection);
@@ -420,6 +421,7 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
             command.Parameters.AddWithValue("dir_x", block["dir_x"].GetInt32());
             command.Parameters.AddWithValue("translate_object_area", block["translate_object_area"].GetInt32());
             command.Parameters.AddWithValue("random_rotation", block["random_rotation"].GetInt32());
+            command.Parameters.AddWithValue("ground", block["ground"].GetInt32());
             command.Parameters.AddWithValue("css", block["css"].GetString());
             await command.ExecuteNonQueryAsync();
             context.Response.StatusCode = 200;
