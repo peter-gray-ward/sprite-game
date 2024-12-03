@@ -31,8 +31,8 @@ namespace App
 				if (token == null)
 				{
 					context.Response.ContentType = "text/html";
-	        		await context.Response.SendFileAsync("wwwroot/auth.html");
-	        		return;
+					await context.Response.SendFileAsync("wwwroot/auth.html");
+	 				return;
 				}
 
 				await _next(context);

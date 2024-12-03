@@ -15,19 +15,17 @@
 		h1 {
 			text-align: center;
 			font-size: 2.5em;
-			color: #5d4037; /* Slightly lighter brown */
+			color: darkblue;
+			font-family: Cursive;
 			margin-bottom: 1em;
 			text-shadow: 2px 2px #d7ccc8; /* Subtle shadow for depth */
 		}
 
 		/* Form Styling */
 		form, section {
-			background: rgba(255, 255, 255, 0.8); /* Transparent parchment background */
-			border: 2px solid #5d4037; /* Dark brown border */
 			border-radius: 8px;
 			box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for elevation */
 			padding: 1em;
-			width: 300px;
 			margin: auto;
 			text-align: center;
 		}
@@ -65,21 +63,9 @@
 			color: #3e2723; /* Dark brown */
 		}
 
-		/* Div container for sections */
-		div {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			gap: .2em;
-			margin-bottom: .2em;
-		}
 
 		/* Responsive Design */
 		@media (max-width: 600px) {
-			section {
-				width: 100%;
-			}
 
 			h1 {
 				font-size: 2em;
@@ -90,27 +76,38 @@
 			}
 		}
 	</style>
+    <link rel="stylesheet" href="lib/jquery-ui/jquery-ui.min.css">
+    <link rel="stylesheet" href="lib/jquery-ui/jquery-ui.structure.min.css">
+    <link rel="stylesheet" href="lib/jquery-ui/jquery-ui.theme.min.css">
 </head>
 <body>
 
-	<h1>Authentication</h1>
-	<div>
-		<section id="register">
-			<input name="name" placeholder="name" required />
-			<input name="password" placeholder="password" type="password" required />
-			<button type="submit" onclick="register(event)">Register</button>
-		</section>
-		<div class="message" id="register-message"></div>
+	<h1>Sprite Game Authentication</h1>
+	<div id="tabs">
+        <ul>
+            <li><a href="#login">Sign-In</a></li>
+            <li><a href="#register">Register</a></li>
+        </ul>
+   		<div id="login">
+			<section>
+				<input name="name" placeholder="name" required />
+				<input name="password" placeholder="password" type="password" required />
+				<button type="submit" onclick="login(event)">Login</button>
+			</section>
+			<div class="message" id="login-message"></div>
+		</div>
+		<div id="register">
+			<section>
+				<input name="name" placeholder="name" required />
+				<input name="password" placeholder="password" type="password" required />
+				<button type="submit" onclick="register(event)">Register</button>
+			</section>
+			<div class="message" id="register-message"></div>
+		</div>
+		
 	</div>
-	<div>
-		<section id="login">
-			<input name="name" placeholder="name" required />
-			<input name="password" placeholder="password" type="password" required />
-			<button type="submit" onclick="login(event)">Login</button>
-		</section>
-		<div class="message" id="login-message"></div>
-	</div>
-
+    <script src="lib/jquery-ui/external/jquery/jquery.js"></script>
+    <script src="lib/jquery-ui/jquery-ui.min.js"></script>
 	<script>
 		function register(event) {
 			event.preventDefault(); // Prevent form from reloading the page
@@ -149,6 +146,10 @@
 				password: document.querySelector("#login input[name='password']").value
 			}));
 		}
+
+		$(function() {
+			$('#tabs').tabs()
+		})
 	</script>
 </body>
 </html>

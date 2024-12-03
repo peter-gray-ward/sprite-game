@@ -63,40 +63,38 @@ var view = {
     keys: new Set(),
     key_values: {
       arrowup: {
-        top: -1,
+        top: -.001,
       },
       arrowright: {
-        left: 1
+        left: .001
       },
       arrowdown: {
-        top: 1
+        top: .001
       },
       arrowleft: {
-        left: -1
+        left: -.001
       }
     },
     rotation: {
       up: {
-        top: -517,
+        top: -517 / -1344,
         index: 0
       },
       left: {
-        top: -582,
+        top: -582 / -1344,
         index: 0
       },
       down: {
-        top: -646,
+        top: -646 / -1344,
         index: 0
       },
       right: {
-        top: -710,
+        top: -710 / -1344,
         index: 0
       }
     },
-    width: 60,
-    height: 60,
-    section: -64,
-    offset: -2,
+    section: -64 / -832,
+    offset: -2 / -832,
     direction: undefined,
     z_index: 0
   }
@@ -550,7 +548,10 @@ function LoadSprite() {
   RenderGandalf()
 }
 
+window.stop = false
+var i = 0;
 function RenderGandalf() {
+  if (stop) return
   let isMoving = false;
   for (var key of view.sprite.keys) {
     if (view.sprite.key_values[key]) {
@@ -569,16 +570,39 @@ function RenderGandalf() {
   }
 
   const spriteDirection = view.sprite.direction;
+  const $viewheight = $("#view").height()
 
-  $(view.sprite.el).css({
+  // Sprite and image properties
+  const spriteSize = 64; // Size of each sprite in pixels
+  const imageHeight = 1344; // Total height of the sprite sheet in pixels
+  const scaledImageHeight = 189; // Total height of the sprite sheet in vh
+  const scalingFactor = 189 / 1344;
+  const rotation = view.sprite.rotation[spriteDirection];
+  const sectionWidth = view.sprite.section * 832;
+  const offset = view.sprite.offset * 832;
+  const backgroundX = `calc(-1 * (${rotation.index} * 64) * ${scalingFactor}vh)`;
+  const backgroundY = `calc(-1 * ${rotation.top * 1344} * ${scalingFactor}vh)`;
+
+  const css = {
     background: `url(/Gandalf.png) no-repeat`,
-    backgroundPosition: `${(view.sprite.rotation[spriteDirection].index * view.sprite.section) + view.sprite.offset}px ${view.sprite.rotation[spriteDirection].top}px`,
-    width: `${view.sprite.width}px`,
-    height: `${view.sprite.height}px`,
-    top: `${view.sprite.position.top}px`,
-    left: `${view.sprite.position.left}px`,
+    backgroundSize: `auto ${scaledImageHeight}vh`,
+    backgroundPosition: `${backgroundX} ${backgroundY}`,
+    width: `${spriteSize * scalingFactor}vh`, // Ensure sprite section matches 9vh
+    height: `${spriteSize * scalingFactor}vh`,
+    top: `${view.sprite.position.top * $viewheight}px`,
+    left: `${view.sprite.position.left * $viewheight}px`,
     zIndex: view.sprite.z_index
-  });
+  }
+
+  // if (i++ % 2 == 0) {
+  //   css.
+  // }
+
+  // if (i == 100) {
+  //   i = 0
+  // }
+
+  $(view.sprite.el).css(css);
 
   const spriteBottom = view.sprite.position.top + 60
 
@@ -588,7 +612,7 @@ function RenderGandalf() {
       for (var div of block.divs) {
         let zIndex = +$(div).css('z-index')
         let bottomEdge = +$(div).css('top').split('px')[0] + +$(div).css('height').split('px')[0];
-        if (bottomEdge > spriteBottom) {
+        if (bottomEdge > spriteBottom && zIndex < view.sprite.z_index) {
           $(div).css('z-index', zIndex + view.sprite.z_index);
         } else {
           $(div).css('z-index', +div.dataset.zIndex);

@@ -3,6 +3,7 @@ html, body, main {
 	height: 100vh;
 	margin: 0;
 	padding: 0;
+	overflow: hidden;
 }
 
 * {
@@ -28,6 +29,9 @@ main {
 .sprite {
 	position: absolute;
 	z-index: 999;
+/*	width: 8.49858vh !important;
+	height: 8.49858vh !important;
+	background-size: auto 189vh !important;*/
 }
 
 .tile {
@@ -260,6 +264,7 @@ a.ui-button:active,
 	flex-wrap: wrap;
 	justify-content: space-around;
 	align-items: center;
+	overflow: auto;
 }
 
 .drop-options * {
@@ -305,19 +310,25 @@ a.ui-button:active,
 	text-indent: 0.15rem;
 	font-size: 0.75rem;
 	font-family: Andale Mono;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: pre;
 }
 
 #log button.button {
 	border: none;
 	background: slategray;
 	color: lawngreen;
-	width: 10%;
+	width: 15%;
 	font-size: 1vw;
 }
 #log p {
-	width: 100%;
+	width: 80%;
 	justify-content: space-around;
 	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: pre;
 }
 
 #log p, #log p div {
