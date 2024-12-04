@@ -483,10 +483,6 @@ function RenderBlocks(blocks) {
 
         $(div).css(css)
 
-        if (block.ground) {
-          $(div).css('z-index', 1)
-        }
-
         let startY = renderedBlock.start_y < 0 ? 0 : renderedBlock.start_y
         let startX = renderedBlock.start_x < 0 ? 0 : renderedBlock.start_x
         startY = startY > 19 ? 19 : startY
@@ -525,17 +521,37 @@ function RenderBlocks(blocks) {
 }
 
 function SetZIndexes() {
-  for (var object_area of view.object_areas) {
-    try {
-      view.blocks[object_area.block_id].zIndex = Math.floor(object_area.top)
-    } catch (err) {
-      debugger
-    }
-    $(`.block[data-id="${object_area.block_id}"]`).css('z-index', Math.floor(object_area.top))
-    for (var id in view.blocks) {
-      if (view.blocks[id].block.parent_id == object_area.block_id) {
-        for (var div of view.blocks[id].divs) {
-          $(div).css('z-index', view.blocks[object_area.block_id].zIndex + 1)
+  for (var id in view.blocks) {
+    if (view.blocks[id].block.ground) {
+      for (var div of view.blocks[id].divs) {
+        $(div).css('z-index', 1)
+      }
+    } else {
+      for (var div of view.blocks[id].divs) {
+        if (!view.blocks[id].block.parent_id || view.blocks[id].block.parent_id.length !== 36) {
+          var bottom = view.blocks[id].divs.length == 1 ? Infinity : Math.floor(+$(div).css('top').split('px')[0] + $(div).height())
+          if (bottom == Infinity) {
+            for (var oa of view.object_areas) {
+              if (oa.block_id == id) {
+                var oaBottom = oa.top + oa.height
+                if (oaBottom < bottom) {
+                  bottom = Math.floor(oaBottom);
+                }
+              }
+            }
+            var divBottom = Math.floor(+$(div).css('top').split('px')[0] + $(div).height());
+            if (divBottom < bottom) {
+              bottom = divBottom
+            } 
+          }
+          $(div).css("z-index", bottom);
+          for (var id2 in view.blocks) {
+            if (view.blocks[id2].block.parent_id == view.blocks[id].block.id) {
+              for (var div2 of view.blocks[id2].divs) {
+                $(div2).css('z-index', bottom + 1)
+              }
+            }
+          }
         }
       }
     }
@@ -633,7 +649,7 @@ function RenderGandalf() {
   for (var object_area of view.object_areas) {
     switch (view.sprite.direction) {
     case "up":
-      if (spriteTop <= object_area.top + object_area.height
+      if (spriteTop <= object_area.top + object_area.height + 1
         && spriteBottom > object_area.top + object_area.height
         && spriteRight >= object_area.left 
         && spriteLeft <= object_area.left + object_area.width) {
@@ -644,7 +660,7 @@ function RenderGandalf() {
       }
       break;
     case "right":
-      if (spriteRight >= object_area.left
+      if (spriteRight >= object_area.left - 1
         && spriteLeft < object_area.left
         && spriteTop <= object_area.top + object_area.height
         && spriteBottom >= object_area.top) {
@@ -655,7 +671,7 @@ function RenderGandalf() {
       }
       break;
     case "down":
-      if (spriteBottom >= object_area.top
+      if (spriteBottom >= object_area.top - 1
         && spriteTop < object_area.top
         && spriteRight >= object_area.left 
         && spriteLeft <= object_area.left + object_area.width) {
@@ -666,7 +682,7 @@ function RenderGandalf() {
       }
       break;
     case "left":
-      if (spriteLeft <= object_area.left + object_area.width
+      if (spriteLeft <= object_area.left + object_area.width + 1
         && spriteRight > object_area.left + object_area.width
         && spriteTop <= object_area.top + object_area.height
         && spriteBottom >= object_area.top) {
@@ -1106,7 +1122,6 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
   return { newLeft, newTop };
 }
 
-
 function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var _transform = block.css.transform
   var transform = {
@@ -1130,7 +1145,7 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var segment = (width * transform.scale) / 7
   var viewElement = document.getElementById('view')
   for (var object_area of block.object_area) {
-    var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}`;
+    var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}__${index}`;
     var objectArea = document.createElement('div');
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
@@ -1149,7 +1164,14 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
 
 
     if (view.saving_object_areas) {
-      view.object_areas.push({ block_id: block.id, id: objectAreaId, top: newTop, left: newLeft, width: segment, height: segment })
+      view.object_areas.push({ 
+        block_id: block.id, 
+        id: objectAreaId, 
+        top: newTop, 
+        left: newLeft, 
+        width: segment, 
+        height: segment 
+      })
     }
 
 
