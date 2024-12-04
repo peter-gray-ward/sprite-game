@@ -411,22 +411,6 @@ function GetBlocks() {
   xhr.send()
 }
 
-function calculateAbsoluteOffsets(left, top, width, height, transform, originX = 0, originY = 0, translateObjectArea) {
-  // Calculate new scaled dimensions
-  const scaledWidth = width * transform.scale;
-  const scaledHeight = height * transform.scale;
-
-  // Calculate the apparent shift due to scaling
-  const offsetLeft = (transform.scale - 1) * width * originX;
-  const offsetTop = (transform.scale - 1) * height * originY;
-
-  // Adjust the absolute position
-  const newLeft = left - offsetLeft + (translateObjectArea ? transform.translateX : 0)
-  const newTop = top - offsetTop + (translateObjectArea ? transform.translateY : 0)
-
-  return { newLeft, newTop };
-}
-
 function RenderManageBlocks(blocks) {
   var keys = ['id', 'recurrence_id', 'image_id']
   document.getElementById("manage-blocks").innerHTML = `
@@ -483,8 +467,6 @@ function RenderBlocks(blocks) {
         var css = Object.assign({}, renderedBlock.css);
         css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
 
-        css.zIndex = 2 + renderedBlock.start_y
-
         if (block.random_rotation > 0) {
           var randomRotation = 'rotate(' + Math.floor(Math.random() * 4) * 90 + 'deg)';
           
@@ -493,6 +475,10 @@ function RenderBlocks(blocks) {
           } else {
             block.css.transform += ' ' + randomRotation;
           }
+        }
+
+        if (css.zIndex) {
+          delete css.zIndex
         }
 
         $(div).css(css)
@@ -514,8 +500,6 @@ function RenderBlocks(blocks) {
         div.style.left = startTile.offsetLeft + 'px'
         div.dataset.id = block.id
         div.dataset.recurrence_id = renderedBlock.recurrence_id;
-        div.dataset.zIndex = css.zIndex
-        // div.innerHTML = css.zIndex
 
         document.getElementById('view').appendChild(div)
 
@@ -529,27 +513,33 @@ function RenderBlocks(blocks) {
           }
         }
 
-        div.dataset.zIndex = +$(div).css("z-index");
         view.blocks[renderedBlock.id].divs.push(div)
       }
     }
   }
 
-  // adjust z-index for divs with parent
-  for (var id in view.blocks) {
-    if (typeof view.blocks[id].block.parent_id == 'string' && view.blocks[id].block.parent_id.length == 36) {
-      view.blocks[view.blocks[id].block.parent_id].children_ids.push(id)
-      var parent_zIndex = view.blocks[view.blocks[id].block.parent_id].block.start_y + 2 + 
-        view.blocks[view.blocks[id].block.parent_id].block.css.zIndex
-      for (var div of view.blocks[id].divs) {
-        $(div).css("z-index", parent_zIndex + 1)
+  AddObjectAreas()
+  SetZIndexes()
+  AdjustEditBlockImage()
+  AddEvents()
+}
+
+function SetZIndexes() {
+  for (var object_area of view.object_areas) {
+    try {
+      view.blocks[object_area.block_id].zIndex = Math.floor(object_area.top)
+    } catch (err) {
+      debugger
+    }
+    $(`.block[data-id="${object_area.block_id}"]`).css('z-index', Math.floor(object_area.top))
+    for (var id in view.blocks) {
+      if (view.blocks[id].block.parent_id == object_area.block_id) {
+        for (var div of view.blocks[id].divs) {
+          $(div).css('z-index', view.blocks[object_area.block_id].zIndex + 1)
+        }
       }
     }
   }
-
-  AddObjectAreas()
-  AdjustEditBlockImage()
-  AddEvents()
 }
 
 function LoadView() {
@@ -579,10 +569,8 @@ function LoadSprite() {
   RenderGandalf()
 }
 
-window.stop = false
 var i = 0;
 function RenderGandalf() {
-  if (stop) return
   let isMoving = false;
   const originalPosition = Object.assign({}, view.sprite.position)
   for (var key of view.sprite.keys) {
@@ -602,7 +590,6 @@ function RenderGandalf() {
   }
 
   const spriteDirection = view.sprite.direction;
-
   const spriteSize = 64; // Size of each sprite in pixels
   const imageHeight = 1344; // Total height of the sprite sheet in pixels
   const scaledImageHeight = 189; // Total height of the sprite sheet in vh
@@ -622,7 +609,7 @@ function RenderGandalf() {
     height: `${sprite$viewHeight}vh`,
     top: view.sprite.position.top * view.$height,
     left: view.sprite.position.left * view.$height,
-    zIndex: view.sprite.z_index
+    zIndex: Math.floor(view.sprite.position.top * view.$height + sprite$viewHeight * 0.01 * 0.75 * view.$height)
   }
 
   if (i++ == 100) {
@@ -633,46 +620,12 @@ function RenderGandalf() {
   let spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height();
   let spriteRight = view.sprite.position.left * view.$height + $("#gandalf").width();
   let spriteLeft = view.sprite.position.left * view.$height;
-
-  for (var id in view.blocks) {
-    const block = view.blocks[id]
-
-    if (!view.blocks[id].block.ground && typeof view.blocks[id].block.parent_id == 'object') {
-      for (var div of block.divs) {
-        var divs = [div]
-        if (block.children_ids.length) {
-          for (var child_id of block.children_ids) {
-            divs.push(...view.blocks[child_id].divs)
-          }
-        }
-
-        let zIndex = +div.dataset.zIndex
-        let bottomEdge = +$(div).css('top').split('px')[0] + +$(div).css('height').split('px')[0];
-
-
-        if (bottomEdge > spriteBottom && zIndex < view.sprite.z_index) {
-          divs.forEach(d => {
-            zIndex = zIndex + +d.dataset.zIndex
-            $(d).css('z-index', zIndex + view.sprite.z_index);
-          })
-        } else {
-          divs.forEach(d => {
-            $(d).css('z-index', +d.dataset.zIndex);
-          })
-        }
-      }
-    }
-  }
-
   const gandalf$height = $("#gandalf").height();
   const gandalf$width = $("#gandalf").width()
 
 
   spriteTop += gandalf$height * .75
   spriteBottom -= gandalf$height * .15
-  
-  
-
   spriteLeft += gandalf$width * 0.333
   spriteRight -= gandalf$width * 0.333
 
@@ -761,7 +714,7 @@ function LoadImageIds() {
       var imageBrowseResults = document.getElementById('image-browse-results')
       imageBrowseResults.innerHTML = ''
       control.image_urls = {}
-      var tags = Array.from(new Set(res.data.map(d => d.tag)))
+      var tags = Array.from(new Set(res.data.map(d => d.tag))).sort((a, b) => a > b ? 1 : -1)
       for (var i = 0; i < tags.length; i++) {
         var option = document.createElement("option")
         option.value = tags[i]
@@ -1125,6 +1078,35 @@ function GetBlockDimensions(block) {
   }
 }
 
+function calculateAbsoluteOffsets(left, top, width, height, transform, originX = 0, originY = 0, translateObjectArea, units) {
+  // Calculate new scaled dimensions
+  const scaledWidth = width * transform.scale;
+  const scaledHeight = height * transform.scale;
+
+  // Calculate the apparent shift due to scaling
+  const offsetLeft = (transform.scale - 1) * width * originX;
+  const offsetTop = (transform.scale - 1) * height * originY;
+
+  for (var transformation in transform) {
+      debugger
+    switch (units[transformation]) {
+    case 'px':
+      transform[transformation] = transform[transformation]
+      break;
+    case '%':
+      transform[transformation] = transform[transformation] * 0.01 * scaledWidth
+      break;
+    }
+  }
+
+  // Adjust the absolute position
+  const newLeft = left - offsetLeft + (translateObjectArea ? transform.translateX : 0)
+  const newTop = top - offsetTop + (translateObjectArea ? transform.translateY : 0)
+
+  return { newLeft, newTop };
+}
+
+
 function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var _transform = block.css.transform
   var transform = {
@@ -1136,8 +1118,13 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var regex = /([a-zA-Z]+)\((-?\d+(\.\d+)?(px|deg|%)?)\)/g;
   var match;
   var unitRegex = /[a-zA-Z%]+/g;
+  var units = {}
 
   while ((match = regex.exec(_transform)) !== null) {
+    var unit = match[2].match(unitRegex)
+    if (unit) {
+      units[match[1]] = unit[0]
+    }
     transform[match[1]] = +match[2].replace(unitRegex, '');
   }
   var segment = (width * transform.scale) / 7
@@ -1149,7 +1136,7 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     objectArea.id = objectAreaId;
 
     
-    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5, block.translate_object_area)
+    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5, block.translate_object_area, units)
     newTop = newTop + (segment * object_area[0])
     newLeft = newLeft + (segment * object_area[1])
 
@@ -1162,7 +1149,7 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
 
 
     if (view.saving_object_areas) {
-      view.object_areas.push({ id: objectAreaId, top: newTop, left: newLeft, width: segment, height: segment })
+      view.object_areas.push({ block_id: block.id, id: objectAreaId, top: newTop, left: newLeft, width: segment, height: segment })
     }
 
 
