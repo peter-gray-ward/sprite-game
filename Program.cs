@@ -424,13 +424,10 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
             command.Parameters.AddWithValue("random_rotation", block["random_rotation"].GetInt32());
             command.Parameters.AddWithValue("ground", block["ground"].GetInt32());
             string? parent_id = block["parent_id"].GetString();
-            if (parent_id is not null)
-            {
-                if (parent_id.Trim() != "")
-                {
-                    command.Parameters.AddWithValue("parent_id", Guid.Parse(parent_id));
-                }
-            }
+            command.Parameters.AddWithValue(
+                "parent_id",
+                string.IsNullOrWhiteSpace(parent_id) ? (object)DBNull.Value : Guid.Parse(parent_id)
+            );
             command.Parameters.AddWithValue("css", block["css"].GetString());
             await command.ExecuteNonQueryAsync();
             context.Response.StatusCode = 200;
@@ -507,7 +504,6 @@ app.MapGet("/get-blocks/{level_id}", async context =>
                 {
                     string fieldName = reader.GetName(i);
                     object fieldValue = reader[fieldName];
-                    Console.WriteLine(fieldName + " " + fieldValue);
                     block[fieldName] = fieldValue;
                 }
 

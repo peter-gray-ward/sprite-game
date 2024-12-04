@@ -281,8 +281,11 @@ function MakeDraggable(element) {
     start: function(event, ui) {
       $('.tile').css('z-index', 999);
       $(this).addClass('dragging');
-
       $('#image-browse-results, #image-browse-results').css('overflow', 'visible')
+
+      if (Boolean(this.dataset.copy) == true) {
+        control.copy = true
+      }
       
       if (event.currentTarget.classList.contains('block')) {
         control.dragged_tile_id = event.currentTarget.id
@@ -318,6 +321,8 @@ function MakeDroppable(element) {
           SaveBlocks()
         })
       }
+
+      control.copy = false
     },
     over: function(event, ui) {
       $('.tile').removeClass('over')
@@ -333,11 +338,11 @@ function MakeDroppable(element) {
       $('#tile-over-id').html(id[1] + ',' + id[0])
 
       view.drop_area = {
-        dimensions,
-        xRepeat, 
-        yRepeat,
-        xDir, 
-        yDir,
+        dimensions: control.copy ? view.blocks[control.block_id].block.dimension : dimensions,
+        xRepeat: xRepeat, 
+        yRepeat: yRepeat,
+        xDir: xDir, 
+        yDir: yDir,
         start_x: id[1],
         start_y: id[0]
       }
@@ -374,6 +379,7 @@ function SaveBlocks() {
     }
     control.image_id = ''
   })
+
   xhr.send(JSON.stringify(view.drop_area))
 }
 
@@ -477,8 +483,7 @@ function RenderBlocks(blocks) {
         var css = Object.assign({}, renderedBlock.css);
         css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
 
-        let start_y = block.start_y;
-        css.zIndex = +css.zIndex + 2 + start_y
+        css.zIndex = 2 + renderedBlock.start_y
 
         if (block.random_rotation > 0) {
           var randomRotation = 'rotate(' + Math.floor(Math.random() * 4) * 90 + 'deg)';
@@ -510,6 +515,7 @@ function RenderBlocks(blocks) {
         div.dataset.id = block.id
         div.dataset.recurrence_id = renderedBlock.recurrence_id;
         div.dataset.zIndex = css.zIndex
+        // div.innerHTML = css.zIndex
 
         document.getElementById('view').appendChild(div)
 
@@ -531,7 +537,7 @@ function RenderBlocks(blocks) {
 
   // adjust z-index for divs with parent
   for (var id in view.blocks) {
-    if (typeof view.blocks[id].block.parent_id == 'string') {
+    if (typeof view.blocks[id].block.parent_id == 'string' && view.blocks[id].block.parent_id.length == 36) {
       view.blocks[view.blocks[id].block.parent_id].children_ids.push(id)
       var parent_zIndex = view.blocks[view.blocks[id].block.parent_id].block.start_y + 2 + 
         view.blocks[view.blocks[id].block.parent_id].block.css.zIndex
@@ -841,7 +847,8 @@ function SelectBlock(event) {
   $('#block-type-edit .drop-dimensions input').val(view.blocks[control.block_id].block.dimension)
 
   let copyBlock = document.getElementById('copy-block')
-  $(copyBlock).css('background-image', css.backgroundImage)
+  $(copyBlock).css('background-image', css.backgroundImage);
+  copyBlock.dataset.copy = true
   copyBlock.dataset.id = block.id
   MakeDraggable(copyBlock)
 
