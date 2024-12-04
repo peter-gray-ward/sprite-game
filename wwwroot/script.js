@@ -55,6 +55,9 @@ var view = {
   $height: undefined,
   drop_area: {},
   view_block_areas: false,
+  saving_object_areas: true,
+  object_areas: [],
+  wall_bump_sound: new Audio("/wall-bump-sound.mp3"),
   sprite: {
     name: 'Gandalf',
     el: undefined,
@@ -544,6 +547,7 @@ function RenderBlocks(blocks) {
 }
 
 function LoadView() {
+  view.saving_object_areas = true
   $('.block').each(function(_, elem) {
     elem.remove()
   })
@@ -574,6 +578,7 @@ var i = 0;
 function RenderGandalf() {
   if (stop) return
   let isMoving = false;
+  const originalPosition = Object.assign({}, view.sprite.position)
   for (var key of view.sprite.keys) {
     if (view.sprite.key_values[key]) {
       isMoving = true;
@@ -592,7 +597,6 @@ function RenderGandalf() {
 
   const spriteDirection = view.sprite.direction;
 
-  // Sprite and image properties
   const spriteSize = 64; // Size of each sprite in pixels
   const imageHeight = 1344; // Total height of the sprite sheet in pixels
   const scaledImageHeight = 189; // Total height of the sprite sheet in vh
@@ -610,8 +614,8 @@ function RenderGandalf() {
     backgroundPosition: i % 8 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
     width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
     height: `${sprite$viewHeight}vh`,
-    top: `${view.sprite.position.top * view.$height}px`,
-    left: `${view.sprite.position.left * view.$height}px`,
+    top: view.sprite.position.top * view.$height,
+    left: view.sprite.position.left * view.$height,
     zIndex: view.sprite.z_index
   }
 
@@ -619,13 +623,15 @@ function RenderGandalf() {
     i = 0
   }
 
-  $(view.sprite.el).css(css);
-
-  const spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height()
+  let spriteTop = view.sprite.position.top * view.$height;
+  let spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height();
+  let spriteRight = view.sprite.position.left * view.$height + $("#gandalf").width();
+  let spriteLeft = view.sprite.position.left * view.$height;
 
   for (var id in view.blocks) {
+    const block = view.blocks[id]
+
     if (!view.blocks[id].block.ground && typeof view.blocks[id].block.parent_id == 'object') {
-      const block = view.blocks[id]
       for (var div of block.divs) {
         var divs = [div]
         if (block.children_ids.length) {
@@ -651,6 +657,84 @@ function RenderGandalf() {
       }
     }
   }
+
+  const gandalf$height = $("#gandalf").height();
+  const gandalf$width = $("#gandalf").width()
+
+
+  spriteTop += gandalf$height * .75
+  spriteBottom -= gandalf$height * .15
+  
+  
+
+  spriteLeft += gandalf$width * 0.333
+  spriteRight -= gandalf$width * 0.333
+
+  var bumps = false
+  for (var object_area of view.object_areas) {
+    switch (view.sprite.direction) {
+    case "up":
+      if (spriteTop <= object_area.top + object_area.height
+        && spriteBottom > object_area.top + object_area.height
+        && spriteRight >= object_area.left 
+        && spriteLeft <= object_area.left + object_area.width) {
+        bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+      } else {
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+      }
+      break;
+    case "right":
+      if (spriteRight >= object_area.left
+        && spriteLeft < object_area.left
+        && spriteTop <= object_area.top + object_area.height
+        && spriteBottom >= object_area.top) {
+         bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+      } else {
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+      }
+      break;
+    case "down":
+      if (spriteBottom >= object_area.top
+        && spriteTop < object_area.top
+        && spriteRight >= object_area.left 
+        && spriteLeft <= object_area.left + object_area.width) {
+        bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.5)')
+      } else {
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.5)')
+      }
+      break;
+    case "left":
+      if (spriteLeft <= object_area.left + object_area.width
+        && spriteRight > object_area.left + object_area.width
+        && spriteTop <= object_area.top + object_area.height
+        && spriteBottom >= object_area.top) {
+        bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+      } else {
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+      }
+      break;
+    }
+  }
+
+  if (bumps) {
+    if (isMoving) {
+      view.wall_bump_sound.play()
+    }
+    delete css.top
+    delete css.left
+    view.sprite.position = originalPosition
+  } else {
+    css.top += 'px'
+    css.left += 'px'
+  }
+
+  
+
+  $(view.sprite.el).css(css);
 
   window.requestAnimationFrame(RenderGandalf);
 }
@@ -1001,7 +1085,7 @@ function ChangeBlockPosition() {
 
 function AddObjectAreas() {
   $('.object-area').remove();
-  if (view.view_block_areas) {
+  if (view.saving_object_areas || view.view_block_areas) {
     for (var b of Object.values(view.blocks)) {
       var block = b.block
       var object_area_index = 0
@@ -1011,10 +1095,13 @@ function AddObjectAreas() {
           renderedBlock.start_x = x
           renderedBlock.start_y = y
           const { top, left, width, height } = GetBlockDimensions(renderedBlock)
-          CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
+          if (view.saving_object_areas || view.view_block_areas) {
+            CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
+          }
         }
       }
     }
+    view.saving_object_areas = false
   }
 }
 
@@ -1047,24 +1134,34 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     transform[match[1]] = +match[2].replace(unitRegex, '');
   }
   var segment = (width * transform.scale) / 7
-  var view = document.getElementById('view')
+  var viewElement = document.getElementById('view')
   for (var object_area of block.object_area) {
     var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}`;
     var objectArea = document.createElement('div');
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
+
     
     var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5, block.translate_object_area)
+    newTop = newTop + (segment * object_area[0])
+    newLeft = newLeft + (segment * object_area[1])
 
     $(objectArea).css({
       width: segment + 'px',
       height: segment + 'px',
-      top: newTop + (segment * object_area[0]) + 'px',
-      left: newLeft + (segment * object_area[1]) + 'px'
+      top: newTop + 'px',
+      left: newLeft + 'px'
     });
 
 
-    view.appendChild(objectArea);
+    if (view.saving_object_areas) {
+      view.object_areas.push({ id: objectAreaId, top: newTop, left: newLeft, width: segment, height: segment })
+    }
+
+
+    if (view.view_block_areas) {
+      viewElement.appendChild(objectArea);
+    }
   }
 }
 
@@ -1087,7 +1184,6 @@ function DeleteBlock() {
   });
   xhr.send();
 }
-
 
 function KeyDown(event) {
   const eventKey = event.key.toLowerCase();

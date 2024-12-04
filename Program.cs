@@ -528,5 +528,21 @@ app.MapGet("/get-blocks/{level_id}", async context =>
     }
 });
 
+app.MapGet("/wall-bump-sound.mp3", async context => {
+    try
+    {
+        context.Response.ContentType = "audio/mp3";
+        using (FileStream stream = new FileStream("wwwroot/wall-bump-sound.mp3", FileMode.Open, FileAccess.Read))
+        {
+            await stream.CopyToAsync(context.Response.Body);
+        }
+    }
+    catch (Exception e)
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
+    }
+});
+
 
 app.Run();
