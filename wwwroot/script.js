@@ -14,6 +14,7 @@ var events = {
   '#delete-block:click': DeleteBlock,
   '.tile:click': DeselectBlock,
   '#manage-blocks .tbody .tr:click': SelectManageBlockRow,
+  '#select-parent-id:click': SelectParentId,
 
   'window:keydown': KeyDown,
   'window:keyup': KeyUp
@@ -51,6 +52,7 @@ function omit(obj, omissions) {
 var view = {
   dimension: 20,
   blocks: {},
+  $height: undefined,
   drop_area: {},
   view_block_areas: false,
   sprite: {
@@ -63,16 +65,16 @@ var view = {
     keys: new Set(),
     key_values: {
       arrowup: {
-        top: -.001,
+        top: -.002,
       },
       arrowright: {
-        left: .001
+        left: .002
       },
       arrowdown: {
-        top: .001
+        top: .002
       },
       arrowleft: {
-        left: -.001
+        left: -.002
       }
     },
     rotation: {
@@ -106,7 +108,8 @@ var control = {
     active: false,
     object_area: []
   },
-  needsUpdate: true
+  needsUpdate: true,
+  selecting_parent_id: false
 }
 
 var player = {}
@@ -470,6 +473,10 @@ function RenderBlocks(blocks) {
 
         var css = Object.assign({}, renderedBlock.css);
         css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
+
+        let start_y = block.start_y;
+        css.zIndex = +css.zIndex + 2 + start_y
+
         if (block.random_rotation > 0) {
           var randomRotation = 'rotate(' + Math.floor(Math.random() * 4) * 90 + 'deg)';
           
@@ -479,8 +486,6 @@ function RenderBlocks(blocks) {
             block.css.transform += ' ' + randomRotation;
           }
         }
-
-
 
         $(div).css(css)
 
@@ -501,6 +506,7 @@ function RenderBlocks(blocks) {
         div.style.left = startTile.offsetLeft + 'px'
         div.dataset.id = block.id
         div.dataset.recurrence_id = renderedBlock.recurrence_id;
+        div.dataset.zIndex = css.zIndex
 
         document.getElementById('view').appendChild(div)
 
@@ -509,7 +515,8 @@ function RenderBlocks(blocks) {
         if (!view.blocks[renderedBlock.id]) {
           view.blocks[renderedBlock.id]  = {
             block: renderedBlock,
-            divs: []
+            divs: [],
+            children_ids: []
           }
         }
 
@@ -518,6 +525,19 @@ function RenderBlocks(blocks) {
       }
     }
   }
+
+  // adjust z-index for divs with parent
+  for (var id in view.blocks) {
+    if (typeof view.blocks[id].block.parent_id == 'string') {
+      view.blocks[view.blocks[id].block.parent_id].children_ids.push(id)
+      var parent_zIndex = view.blocks[view.blocks[id].block.parent_id].block.start_y + 2 + 
+        view.blocks[view.blocks[id].block.parent_id].block.css.zIndex
+      for (var div of view.blocks[id].divs) {
+        $(div).css("z-index", parent_zIndex + 1)
+      }
+    }
+  }
+
   AddObjectAreas()
   AdjustEditBlockImage()
   AddEvents()
@@ -537,6 +557,7 @@ function LoadView() {
   $('#block-image-container').css('height', $("#block-image-edit-area").css('width'))
 
   LoadSprite()
+  view.$height = $("#view").height()
 }
 
 function LoadSprite() {
@@ -570,7 +591,6 @@ function RenderGandalf() {
   }
 
   const spriteDirection = view.sprite.direction;
-  const $viewheight = $("#view").height()
 
   // Sprite and image properties
   const spriteSize = 64; // Size of each sprite in pixels
@@ -583,39 +603,50 @@ function RenderGandalf() {
   const backgroundX = `calc(-1 * (${rotation.index} * 64) * ${scalingFactor}vh)`;
   const backgroundY = `calc(-1 * ${rotation.top * 1344} * ${scalingFactor}vh)`;
 
-  const css = {
+  var sprite$viewHeight = spriteSize * scalingFactor;
+  var css = {
     background: `url(/Gandalf.png) no-repeat`,
     backgroundSize: `auto ${scaledImageHeight}vh`,
-    backgroundPosition: `${backgroundX} ${backgroundY}`,
-    width: `${spriteSize * scalingFactor}vh`, // Ensure sprite section matches 9vh
-    height: `${spriteSize * scalingFactor}vh`,
-    top: `${view.sprite.position.top * $viewheight}px`,
-    left: `${view.sprite.position.left * $viewheight}px`,
+    backgroundPosition: i % 8 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
+    width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
+    height: `${sprite$viewHeight}vh`,
+    top: `${view.sprite.position.top * view.$height}px`,
+    left: `${view.sprite.position.left * view.$height}px`,
     zIndex: view.sprite.z_index
   }
 
-  // if (i++ % 2 == 0) {
-  //   css.
-  // }
-
-  // if (i == 100) {
-  //   i = 0
-  // }
+  if (i++ == 100) {
+    i = 0
+  }
 
   $(view.sprite.el).css(css);
 
-  const spriteBottom = view.sprite.position.top + 60
+  const spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height()
 
   for (var id in view.blocks) {
-    if (!view.blocks[id].block.ground) {
+    if (!view.blocks[id].block.ground && typeof view.blocks[id].block.parent_id == 'object') {
       const block = view.blocks[id]
       for (var div of block.divs) {
-        let zIndex = +$(div).css('z-index')
+        var divs = [div]
+        if (block.children_ids.length) {
+          for (var child_id of block.children_ids) {
+            divs.push(...view.blocks[child_id].divs)
+          }
+        }
+
+        let zIndex = +div.dataset.zIndex
         let bottomEdge = +$(div).css('top').split('px')[0] + +$(div).css('height').split('px')[0];
+
+
         if (bottomEdge > spriteBottom && zIndex < view.sprite.z_index) {
-          $(div).css('z-index', zIndex + view.sprite.z_index);
+          divs.forEach(d => {
+            zIndex = zIndex + +d.dataset.zIndex
+            $(d).css('z-index', zIndex + view.sprite.z_index);
+          })
         } else {
-          $(div).css('z-index', +div.dataset.zIndex);
+          divs.forEach(d => {
+            $(d).css('z-index', +d.dataset.zIndex);
+          })
         }
       }
     }
@@ -682,6 +713,16 @@ function AdjustEditBlockImage() {
 
 function SelectBlock(event) {
 
+  if (control.selecting_parent_id) {
+    $("#parent-id").html(event.srcElement.dataset.id)
+    control.selecting_parent_id = false;
+    $("#select-parent-id").css({
+      background: 'slategray',
+      color: 'lawngreen'
+    })
+    return;
+  }
+
   $('.block').removeClass('editing')
 
   control.block_id = event.srcElement.dataset.id
@@ -700,6 +741,7 @@ function SelectBlock(event) {
   $("#block-type-edit #translate-object-area").prop('checked', block.translate_object_area > 0)
   $("#block-type-edit #random-rotation").prop('checked', block.random_rotation > 0)
   $("#block-type-edit #ground").prop('checked', block.ground > 0)
+  $("#parent-id").html(block.parent_id)
 
   $('a[href="#edit-block"]').click()
   $('#ui-id-3').click()
@@ -893,7 +935,8 @@ function ApplyBlockEdits() {
     'dir_y': +$('#block-type-edit .y-dir').val(),
     'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0,
     'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0,
-    'ground': $('#ground').is(':checked') ? 1 : 0
+    'ground': $('#ground').is(':checked') ? 1 : 0,
+    'parent_id': $("#parent-id").html()
   });
 
   var xhr = new XMLHttpRequest()
@@ -912,6 +955,14 @@ function ApplyBlockEdits() {
   xhr.send(JSON.stringify(
     payload
   ));
+}
+
+function SelectParentId() {
+  control.selecting_parent_id = true
+  $("#select-parent-id").css({
+    "background": "turquoise",
+    "color": "black"
+  })
 }
 
 function ChangeBlockPosition() {

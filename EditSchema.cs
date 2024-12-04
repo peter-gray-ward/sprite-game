@@ -33,7 +33,8 @@ namespace App
 						object_area TEXT,
 						translate_object_area INT NOT NULL,
 						random_rotation INT NOT NULL,
-						ground INT NOT NULL
+						ground INT NOT NULL,
+						parent_id UUID
 					);
 
 					DROP TABLE IF EXISTS Player;

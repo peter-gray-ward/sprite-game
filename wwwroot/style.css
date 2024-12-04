@@ -29,9 +29,6 @@ main {
 .sprite {
 	position: absolute;
 	z-index: 999;
-/*	width: 8.49858vh !important;
-	height: 8.49858vh !important;
-	background-size: auto 189vh !important;*/
 }
 
 .tile {
@@ -278,7 +275,7 @@ a.ui-button:active,
 }
 
 .x-repeat, .x-dir {
-	background: aliceblue;
+	background: lightskyblue;
 	border: 1px solid gray;
 }
 
@@ -512,24 +509,28 @@ a.ui-button:active,
 
 .object-area {
 	position: absolute;
-	z-index: 999;
+	z-index: 9999;
 	margin: 1px;
 	background: rgba(255, 0, 0, 0.333);
 }
 
 #block-type-edit > div {
 	display: flex;
-    justify-content: space-around;
 }
 
 #block-type-edit > div > label,
-#block-type-edit > div > input {
+#block-type-edit > div > section {
 	width: 50%;
 	border: none;
 }
 
-#block-type-edit > div > input {
-	background: white;
+#block-type-edit > div > input,
+#block-type-edit > div > div {
+    color: royalblue;
+    width: 50%;
+    text-align: center;
+    font-family: monospace;
+    font-size: 1rem;
 }
 
 #view-options {
