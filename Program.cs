@@ -83,6 +83,9 @@ app.MapPost("/login", async context =>
     try
     {
         Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
+
+        Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")} - Attempting login with credentials");
+
         Player player = new Player();
         await player.Login(connectionString, credentials["name"], credentials["password"]);
 

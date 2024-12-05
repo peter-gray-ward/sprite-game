@@ -66,6 +66,7 @@ namespace App
 
 						if (BCrypt.Net.BCrypt.Verify(password, storedPassword))
 						{
+							Console.WriteLine("Passwords match!");
 							var token = Guid.NewGuid();
 
 							this.access_token = token.ToString();
@@ -76,9 +77,11 @@ namespace App
 							this.direction = reader.GetString(5);
 							this.z_index = reader.GetInt32(6);
 
-							Console.WriteLine("User is moving " + this.direction);
-
 							return true;
+						}
+						else
+						{
+							Console.WriteLine("Passwords do not match!");
 						}
 					}
 				}

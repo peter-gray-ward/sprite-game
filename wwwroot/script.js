@@ -13,6 +13,8 @@ var events = {
   '#view-object-areas:change': ChangeViewObjectAreas,
   '#delete-block:click': DeleteBlock,
   '.tile:click': DeselectBlock,
+  '#manage-blocks .tbody .tr:mouseover': MouseOverBlockRow,
+  '#manage-blocks .tbody .tr:mouseleave': MouseLeaveBlockRow,
   '#manage-blocks .tbody .tr:click': SelectManageBlockRow,
   '#select-parent-id:click': SelectParentId,
 
@@ -55,7 +57,6 @@ var view = {
   $height: undefined,
   drop_area: {},
   view_block_areas: false,
-  saving_object_areas: true,
   object_areas: [],
   wall_bump_sound: new Audio("/wall-bump-sound.mp3"),
   sprite: {
@@ -559,7 +560,6 @@ function SetZIndexes() {
 }
 
 function LoadView() {
-  view.saving_object_areas = true
   $('.block').each(function(_, elem) {
     elem.remove()
   })
@@ -571,7 +571,7 @@ function LoadView() {
   }
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('#block-image-container').css('height', $("#block-image-edit-area").css('width'))
-
+  AddObjectAreas()
   LoadSprite()
   view.$height = $("#view").height()
 }
@@ -711,6 +711,8 @@ function RenderGandalf() {
 
   $(view.sprite.el).css(css);
 
+  $("#object-areas-count").html(view.object_areas.length)
+
   window.requestAnimationFrame(RenderGandalf);
 }
 
@@ -842,6 +844,24 @@ function DeselectBlock(event) {
   });
   $('.object-area-preview').removeClass('selected')
   $('#block-css').html('')
+}
+
+function MouseOverBlockRow(event) {
+  var tr = event.srcElement;
+  while (tr && !tr.classList.contains('tr')) {
+    tr = tr.parentElement;
+  }
+  var block_id = tr.children[0].innerHTML
+  $('.block[data-id="' + block_id + '"]').addClass('hovered')
+}
+
+function MouseLeaveBlockRow(event) {
+  var tr = event.srcElement;
+  while (tr && !tr.classList.contains('tr')) {
+    tr = tr.parentElement;
+  }
+  var block_id = tr.children[0].innerHTML
+  $('.block[data-id="' + block_id + '"]').removeClass('hovered')
 }
 
 function SelectManageBlockRow(event) {
@@ -1005,6 +1025,7 @@ function ApplyBlockEdits() {
     let res
     try {
       res = JSON.parse(this.response)
+      view.block_areas = [];
       LoadView()
     } catch (err) {
       console.error(err)
@@ -1060,24 +1081,20 @@ function ChangeBlockPosition() {
 }
 
 function AddObjectAreas() {
+  view.object_areas = []
   $('.object-area').remove();
-  if (view.saving_object_areas || view.view_block_areas) {
-    for (var b of Object.values(view.blocks)) {
-      var block = b.block
-      var object_area_index = 0
-      for (var y = block.start_y; y < block.start_y + (block.dimension * block.repeat_y); y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
-        for (var x = block.start_x; x < block.start_x + (block.dimension * block.repeat_x); x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
-          let renderedBlock = Object.assign({}, block);
-          renderedBlock.start_x = x
-          renderedBlock.start_y = y
-          const { top, left, width, height } = GetBlockDimensions(renderedBlock)
-          if (view.saving_object_areas || view.view_block_areas) {
-            CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
-          }
-        }
+  for (var b of Object.values(view.blocks)) {
+    var block = b.block
+    var object_area_index = 0
+    for (var y = block.start_y; y < block.start_y + (block.dimension * block.repeat_y); y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
+      for (var x = block.start_x; x < block.start_x + (block.dimension * block.repeat_x); x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
+        let renderedBlock = Object.assign({}, block);
+        renderedBlock.start_x = x
+        renderedBlock.start_y = y
+        const { top, left, width, height } = GetBlockDimensions(renderedBlock)
+        CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
       }
     }
-    view.saving_object_areas = false
   }
 }
 
@@ -1104,7 +1121,6 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
   const offsetTop = (transform.scale - 1) * height * originY;
 
   for (var transformation in transform) {
-      debugger
     switch (units[transformation]) {
     case 'px':
       transform[transformation] = transform[transformation]
@@ -1163,16 +1179,14 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     });
 
 
-    if (view.saving_object_areas) {
-      view.object_areas.push({ 
-        block_id: block.id, 
-        id: objectAreaId, 
-        top: newTop, 
-        left: newLeft, 
-        width: segment, 
-        height: segment 
-      })
-    }
+    view.object_areas.push({ 
+      block_id: block.id, 
+      id: objectAreaId, 
+      top: newTop, 
+      left: newLeft, 
+      width: segment, 
+      height: segment 
+    });
 
 
     if (view.view_block_areas) {
@@ -1183,7 +1197,7 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
 
 function ChangeViewObjectAreas() {
   var doView = $('#view-object-areas').is(':checked')
-  view.view_block_areas = doView
+  view.view_block_areas = doView;
   AddObjectAreas()
 }
 

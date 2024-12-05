@@ -350,7 +350,7 @@ a.ui-button:active,
 	position: absolute;
 }
 
-.block:hover {
+.block:hover, .block.hovered {
 	border: 2px dotted yellow;
 }
 
