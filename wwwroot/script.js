@@ -516,7 +516,6 @@ function RenderBlocks(blocks) {
   }
 
   AddObjectAreas()
-  SetZIndexes()
   AdjustEditBlockImage()
   AddEvents()
 }
@@ -546,10 +545,12 @@ function SetZIndexes() {
             } 
           }
           $(div).css("z-index", bottom);
+          // $(div).html(bottom + ' [' + view.blocks[id].divs.length + ']')
           for (var id2 in view.blocks) {
             if (view.blocks[id2].block.parent_id == view.blocks[id].block.id) {
               for (var div2 of view.blocks[id2].divs) {
                 $(div2).css('z-index', bottom + 1)
+                // $(div2).html(bottom + 1)
               }
             }
           }
@@ -560,6 +561,10 @@ function SetZIndexes() {
 }
 
 function LoadView() {
+  view.block_areas = [];
+  for (var id in view.blocks) {
+    view.blocks[id].divs = []
+  }
   $('.block').each(function(_, elem) {
     elem.remove()
   })
@@ -792,6 +797,7 @@ function SelectBlock(event) {
   });
 
   const block = view.blocks[control.block_id].block;
+  $("#block-id").html(block.id)
   $("#block-type-edit .y-start").val(block.start_y)
   $("#block-type-edit .x-start").val(block.start_x)
   $("#block-type-edit .dimension").val(block.dimension)
@@ -1025,7 +1031,6 @@ function ApplyBlockEdits() {
     let res
     try {
       res = JSON.parse(this.response)
-      view.block_areas = [];
       LoadView()
     } catch (err) {
       console.error(err)
@@ -1096,6 +1101,7 @@ function AddObjectAreas() {
       }
     }
   }
+  SetZIndexes()
 }
 
 function GetBlockDimensions(block) {
