@@ -134,6 +134,10 @@ main {
 	font-style: italic;
 }
 
+#search-bar label {
+	padding-left: 0.5rem;
+}
+
 #pixabay-search {
 	background: white;
 	flex-grow: 1;
@@ -147,6 +151,7 @@ main {
 
 #search-vector {
 	font-size: 2rem;
+	margin-right: 0.5rem;
 }
 
 #href-input-bar button {
@@ -169,6 +174,16 @@ main {
 	width: 100%;
 }
 
+#level {
+	height: 90vh;
+	overflow: auto;
+}
+
+#boundary-tile-ids {
+	height: calc(90vh / 5);
+	overflow: auto;
+}
+
 .button {
 	background: slategray;
 	color: lawngreen;
@@ -177,6 +192,11 @@ main {
 	border-radius: 5px;
 	border: none;
 	cursor: pointer;
+}
+
+.button.active {
+	background: turquoise;
+	color: black;
 }
 
 .button:active {
@@ -258,7 +278,7 @@ a.ui-button:active,
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
-	justify-content: space-around;
+	justify-content: flex-end;
 	align-items: center;
 	overflow: auto;
 }
@@ -508,23 +528,24 @@ a.ui-button:active,
 
 .object-area {
 	position: absolute;
-	z-index: 9999;
+	z-index: 9998;
 	margin: 1px;
 	background: rgba(255, 0, 0, 0.333);
 }
 
-#block-type-edit > div {
+.form-div {
 	display: flex;
+	max-height: 20%;
 }
 
-#block-type-edit > div > label,
-#block-type-edit > div > section {
+.form-div > label,
+.form-div > section {
 	width: 50%;
 	border: none;
 }
 
-#block-type-edit > div > input,
-#block-type-edit > div > div {
+.form-div > input,
+.form-div > div {
     color: royalblue;
     width: 50%;
     text-align: center;
@@ -560,8 +581,8 @@ a.ui-button:active,
 }
 
 @media (max-width: 1160px) {
-	#search-bar, #href-input-bar {
-		font-size: 0.6rem;
+	#search-bar, #href-input-bar, #image-browse-select, .drop-options * {
+		font-size: 0.6rem !important;
 	}
 }
 

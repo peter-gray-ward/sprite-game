@@ -89,8 +89,11 @@ app.MapPost("/login", async context =>
         Player player = new Player();
         await player.Login(connectionString, credentials["name"], credentials["password"]);
 
+        Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")} - Attempted to login");
+
         if (player.access_token != String.Empty)
         {
+            Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")} - Login Successful");
 
             context.Session.SetString("access_token", player.access_token);
             context.Session.SetString("name", credentials["name"]);
@@ -106,7 +109,7 @@ app.MapPost("/login", async context =>
             }
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", 
-                level = player.level,
+                level_id = player.level_id,
                 position_x = player.position_x,
                 position_y = player.position_y
             }));
@@ -155,6 +158,89 @@ app.MapGet("/api/", async context =>
     await context.Response.WriteAsync(JsonSerializer.Serialize(new { data }));
 });
 
+app.MapGet("/level/{levelId}", async context =>
+{
+    string user_name = context.Session.GetString("name");
+
+    try
+    {
+        string level_id = context.Request.RouteValues["levelId"].ToString();
+        using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            var command = new NpgsqlCommand(@$"
+                SELECT l.id, l.boundary_tile_ids, l.name
+                FROM level l
+                INNER JOIN player p on (l.player_name = p.name)
+                WHERE p.name = @user_name
+                AND l.id = @level_id
+            ", connection);
+            command.Parameters.AddWithValue("user_name", user_name);
+            command.Parameters.AddWithValue("level_id", Guid.Parse(level_id));
+
+            var reader = await command.ExecuteReaderAsync();
+
+            Dictionary<string, object> level = new();
+
+            while (await reader.ReadAsync())
+            {
+                level["name"] = reader["name"];
+                level["id"] = reader["id"];
+                level["boundary_tile_ids"] = reader["boundary_tile_ids"];
+            }
+            
+            await reader.CloseAsync();
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
+                status = "success", 
+                data = level 
+            }));
+        }
+    }
+    catch (Exception e)
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
+    }
+});
+
+app.MapPost("/level/{levelId}", async context =>
+{
+    string user_name = context.Session.GetString("name");
+
+    try
+    {
+        string level_id = context.Request.RouteValues["levelId"].ToString();
+        var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+        Dictionary<string, JsonElement> level = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body);
+        using (var connection = new NpgsqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            var command = new NpgsqlCommand(@$"
+                UPDATE level
+                    set boundary_tile_ids = @boundary_tile_ids
+                WHERE player_name = @player_name
+                AND id = @id
+            ", connection);
+            command.Parameters.AddWithValue("boundary_tile_ids", level["boundary_tile_ids"].GetString());
+            command.Parameters.AddWithValue("player_name", user_name);
+            command.Parameters.AddWithValue("id", Guid.Parse(level["id"].GetString()));
+
+            var reader = await command.ExecuteNonQueryAsync();
+
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
+                status = "success", 
+                data = level 
+            }));
+        }
+    }
+    catch (Exception e)
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
+    }
+});
 
 // Save image endpoint
 app.MapPost("/save-image", async context =>
@@ -294,16 +380,7 @@ app.MapGet("/get-image/{imageId}", async context =>
     }
 });
 
-/**
-    id,
-    dimensions,
-    xRepeat, 
-    yRepeat,
-    xDir, 
-    yDir,
-    start_y,
-    start_x
-*/
+
 app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 {
     string user_name = context.Session.GetString("name");
@@ -311,7 +388,7 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 	try
 	{
 		string imageId = context.Request.RouteValues["imageId"].ToString();
-		int levelId = Convert.ToInt32(context.Request.RouteValues["levelId"]);
+		string levelId = context.Request.RouteValues["levelId"].ToString();
 		var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
 		Dictionary<string, JsonElement> drop_area = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body);
 		using (var connection = new NpgsqlConnection(connectionString))
@@ -325,14 +402,43 @@ app.MapPost("/save-blocks/{levelId}/{imageId}", async context =>
 
 			var command = new NpgsqlCommand(@$"
 				INSERT INTO public.Block
-				(id, user_name, level_id, image_id, start_x, start_y, repeat_y, repeat_x, dir_y, dir_x, dimension, recurrence_id)
+				(
+                    id,
+                    user_name,
+                    level_id,
+                    level_grid,
+                    image_id,
+                    start_x,
+                    start_y,
+                    repeat_y,
+                    repeat_x,
+                    dir_y,
+                    dir_x,
+                    dimension,
+                    recurrence_id
+                )
 				VALUES
-				(@id, @user_name, @level_id, @image_id, @start_x, @start_y, @repeat_y, @repeat_x, @dir_y, @dir_x, @dimension, @recurrence_id)
+				(
+                    @id,
+                    @user_name,
+                    @level_id,
+                    @level_grid,
+                    @image_id,
+                    @start_x,
+                    @start_y,
+                    @repeat_y,
+                    @repeat_x,
+                    @dir_y,
+                    @dir_x,
+                    @dimension,
+                    @recurrence_id
+                )
 			", connection);
 
 			command.Parameters.AddWithValue("id", id);
             command.Parameters.AddWithValue("user_name", user_name);
-			command.Parameters.AddWithValue("level_id", levelId);
+			command.Parameters.AddWithValue("level_id", Guid.Parse(levelId));
+            command.Parameters.AddWithValue("level_grid", drop_area["level_grid"].GetString());
 			command.Parameters.AddWithValue("image_id", Guid.Parse(imageId));
 			command.Parameters.AddWithValue("start_y", drop_area["start_y"].GetInt32());
 			command.Parameters.AddWithValue("start_x", drop_area["start_x"].GetInt32());
@@ -412,6 +518,8 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
                     random_rotation = @random_rotation,
                     ground = @ground,
                     parent_id = @parent_id,
+                    level_id = @level_id,
+                    level_grid = @level_grid,
                     css = @css
                 WHERE recurrence_id = @recurrence_id
             ", connection);
@@ -425,6 +533,8 @@ app.MapPost("/update-block/{recurrence_id}", async context =>
             command.Parameters.AddWithValue("dir_x", block["dir_x"].GetInt32());
             command.Parameters.AddWithValue("translate_object_area", block["translate_object_area"].GetInt32());
             command.Parameters.AddWithValue("random_rotation", block["random_rotation"].GetInt32());
+            command.Parameters.AddWithValue("level_id", Guid.Parse(block["level_id"].GetString()));
+            command.Parameters.AddWithValue("level_grid", block["level_grid"].GetString());
             command.Parameters.AddWithValue("ground", block["ground"].GetInt32());
             string? parent_id = block["parent_id"].GetString();
             command.Parameters.AddWithValue(
@@ -480,7 +590,7 @@ app.MapGet("/get-blocks/{level_id}", async context =>
 
     try 
     {
-        int levelId = Convert.ToInt32(context.Request.RouteValues["level_id"]);
+        string levelId = context.Request.RouteValues["level_id"].ToString();
         using (var connection = new NpgsqlConnection(connectionString))
         {
             await connection.OpenAsync();
@@ -493,7 +603,7 @@ app.MapGet("/get-blocks/{level_id}", async context =>
 
             // Add parameters
             command.Parameters.AddWithValue("user_name", username);
-            command.Parameters.AddWithValue("level_id", levelId);
+            command.Parameters.AddWithValue("level_id", Guid.Parse(levelId));
 
             var reader = await command.ExecuteReaderAsync();
 

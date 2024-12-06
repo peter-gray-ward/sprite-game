@@ -15,6 +15,13 @@ namespace App
 			{
 				await connection.OpenAsync();
 				var command = new NpgsqlCommand(@$"
+					DROP TABLE IF EXISTS level;
+					CREATE TABLE level (
+						id UUID PRIMARY KEY,
+						user_id UUID NOT NULL,
+						boundary_tile_ids TEXT
+					);
+
 					DROP TABLE IF EXISTS Block;
 					CREATE TABLE Block (
 						id UUID PRIMARY KEY,
@@ -26,7 +33,8 @@ namespace App
 						repeat_x INT NOT NULL,
 						dir_y INT NOT NULL,
 						dir_x INT NOT NULL,
-						level_id INT NOT NULL,
+						level_id UUID NOT NULL,
+						level_grid TEXT NOT NULL,
 						image_id UUID,
 						css TEXT,
 						dimension INT,
@@ -45,7 +53,9 @@ namespace App
 						position_x FLOAT,
 						position_y FLOAT,
 						direction TEXT NOT NULL,
-						z_index INT NOT NULL
+						z_index INT NOT NULL,
+						level_grid TEXT NOT NULL,
+						top_left_tile TEXT NOT NULL
 					);
 
 					DROP TABLE IF EXISTS Item;

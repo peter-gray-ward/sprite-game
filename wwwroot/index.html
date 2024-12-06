@@ -21,10 +21,22 @@
             <div id="controller">
                 <div id="tabs">
                     <ul>
+                        <li><a href="#level">Level</a></li>
                         <li><a href="#search-images">Block Images</a></li>
                         <li><a href="#manage-blocks">Manage Blocks</a></li>
                         <li><a href="#edit-block">Edit Block</a></li>
                     </ul>
+                    <div id="level">
+                        <div class="form-div">
+                            <label>level name</label><input name="level-name" id="level-name" />
+                        </div>
+                        <div class="form-div">
+                            <label>
+                                <button class="button" id="select-boundary-tile-ids">select boundaries</button>
+                            </label>
+                            <div id="boundary-tile-ids"></div>
+                        </div>
+                    </div>
                     <div id="search-images">
                         <div class="drop-options">
                             <div class="drop-dimensions">
@@ -57,67 +69,67 @@
                             <section>
                                 <div id="block-type-edit">
                                     <p id="block-id"></p>
-                                    <div>
+                                    <div class="form-div">
                                         <label>y-start</label>
                                         <section>
                                             <input name="y-start" class="y-start" type="number" placeholder="y-start" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>x-start</label>
                                         <section>
                                             <input name="x-start" class="x-start" type="number" placeholder="x-start" />
                                         </section>
                                     </div>
-                                    <div class="drop-dimensions">
+                                    <div class="drop-dimensions form-div">
                                         <label>dimension</label>
                                         <section>
                                             <input name="width" class="dim" type="number" class="width" value="1"/>
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>y-repeat</label>
                                         <section>
                                             <input name="y-repeat" class="y-repeat" type="number" placeholder="y-repeat" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>x-repeat</label>
                                         <section>
                                             <input name="x-repeat" class="x-repeat" type="number" placeholder="x-repeat" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>y-dir</label>
                                         <section>
                                             <input disabled name="y-dir" class="y-dir" type="number" placeholder="y-dir" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>x-dir</label>
                                         <section>
                                             <input disabled name="x-dir" class="x-dir" type="number" placeholder="x-dir" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>translate object-area</label>
                                         <section>
                                             <input type="checkbox" id="translate-object-area" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>random rotation</label>
                                         <section>
                                             <input type="checkbox" id="random-rotation" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>ground</label>
                                         <section>
                                             <input type="checkbox" id="ground" />
                                         </section>
                                     </div>
-                                    <div>
+                                    <div class="form-div">
                                         <label>
                                             <button id="select-parent-id" class="button">Parent Id</button>
                                         </label>

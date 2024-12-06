@@ -17,9 +17,13 @@ var events = {
   '#manage-blocks .tbody .tr:mouseleave': MouseLeaveBlockRow,
   '#manage-blocks .tbody .tr:click': SelectManageBlockRow,
   '#select-parent-id:click': SelectParentId,
+  '#select-boundary-tile-ids:click': SelectBoundaryTiles,
+  '#view.selecting-boundaries:mousedown': SelectBoundariesMousedown,
+  '#view.selecting-boundaries:mousemove': SelectBoundariesMousemove,
 
   'window:keydown': KeyDown,
-  'window:keyup': KeyUp
+  'window:keyup': KeyUp,
+  'window:mouseup': MouseUp
 }
 
 Array.prototype.contains = function(str) {
@@ -29,6 +33,15 @@ Array.prototype.contains = function(str) {
     }
   }
   return false
+}
+
+Array.prototype.remove = function(obj) {
+  for (var i = 0; i < this.length; i++) {
+    if (this[i] == obj) {
+      this.splice(i, 1);
+      return
+    }
+  }
 }
 
 function include(obj, inclusions) {
@@ -113,7 +126,9 @@ var control = {
     object_area: []
   },
   needsUpdate: true,
-  selecting_parent_id: false
+  selecting_parent_id: false,
+  selecting_boundaries: false,
+  boundary_tile_ids: new Set()
 }
 
 var player = {}
@@ -280,7 +295,7 @@ function SaveImage(event, callback) {
 function MakeDraggable(element) {
   $(element).draggable({
     start: function(event, ui) {
-      $('.tile').css('z-index', 999);
+      $('.tile').css('z-index', 9999);
       $(this).addClass('dragging');
       $('#image-browse-results, #image-browse-results').css('overflow', 'visible')
 
@@ -390,7 +405,7 @@ function GetBlocks() {
     element.remove()
   })
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", '/get-blocks/' + player.level);
+  xhr.open("GET", '/get-blocks/' + player.level_id);
   xhr.addEventListener("load", function() {
     let res
     try {
@@ -488,7 +503,7 @@ function RenderBlocks(blocks) {
         let startX = renderedBlock.start_x < 0 ? 0 : renderedBlock.start_x
         startY = startY > 19 ? 19 : startY
         startX = startX > 19 ? 19 : startX
-        var startTile = document.getElementById(`tile_${startY}-${startX}`);
+        var startTile = document.getElementById(`tile_${block.level_grid}_${startY}-${startX}`);
         var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * renderedBlock.dimension
         var tileHeight = tileWidth
         div.style.width = tileWidth + 'px'
@@ -497,6 +512,9 @@ function RenderBlocks(blocks) {
         div.style.left = startTile.offsetLeft + 'px'
         div.dataset.id = block.id
         div.dataset.recurrence_id = renderedBlock.recurrence_id;
+        if (renderedBlock.ground) {
+          div.classList.add('ground');
+        }
 
         document.getElementById('view').appendChild(div)
 
@@ -557,6 +575,39 @@ function SetZIndexes() {
         }
       }
     }
+  }
+}
+
+function LoadLevel() {
+  return new Promise(resolve => {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/level/" + player.level_id);
+    xhr.addEventListener("load", function() {
+      var res = JSON.parse(this.response)
+      if (res.status == 'success') {
+        player.level = res.data;
+        player.level.boundary_tile_ids = JSON.parse(player.level.boundary_tile_ids)
+        for (var id of player.level.boundary_tile_ids) {
+          control.boundary_tile_ids.add(id)
+        }
+        $('#level-name').val(res.data.name);
+        $('#boundary-tile-ids').html(JSON.stringify(Array.from(control.boundary_tile_ids)));
+        resolve()
+      }
+    });
+    xhr.send();
+  })
+}
+
+function LoadTiles(level_grid) {
+  var view = document.getElementById('view')
+  for (var i = 0; i < 400; i++) {
+    var tile = document.createElement('div')
+    tile.id = `tile_${level_grid}_${ Math.floor(i / 20) }-${ i % 20 }`
+    tile.innerHTML = tile.id
+    tile.classList.add('tile')
+    MakeDroppable(tile)
+    view.appendChild(tile)
   }
 }
 
@@ -1022,7 +1073,8 @@ function ApplyBlockEdits() {
     'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0,
     'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0,
     'ground': $('#ground').is(':checked') ? 1 : 0,
-    'parent_id': $("#parent-id").html()
+    'parent_id': $("#parent-id").html(),
+    'level_id': view.blocks[control.block_id].block.level_id
   });
 
   var xhr = new XMLHttpRequest()
@@ -1049,6 +1101,26 @@ function SelectParentId() {
     "background": "turquoise",
     "color": "black"
   })
+}
+
+function SelectBoundaryTiles() {
+  if (!control.selecting_boundaries) {
+    view.view_block_areas = true
+    $("#view-object-areas").prop("checked", true)
+    AddObjectAreas()
+    $('#view').addClass('selecting-boundaries')
+    $("#select-boundary-tile-ids").addClass('active')
+    $('.tile').css('z-index', 9999);
+  } else {
+    view.view_block_areas = false
+    $("#view-object-areas").prop("checked", false)
+    AddObjectAreas()
+    $('#view').removeClass('selecting-boundaries')
+    $("#select-boundary-tile-ids").removeClass('active')
+    $('.tile').css('z-index', 0);
+  }
+  AddEvents()
+  control.selecting_boundaries = !control.selecting_boundaries
 }
 
 function ChangeBlockPosition() {
@@ -1085,9 +1157,20 @@ function ChangeBlockPosition() {
   }))
 }
 
+function isOverlappedByGround(element) {
+    const rect = element.getBoundingClientRect();
+    const centerX = (rect.left + rect.right) / 2;
+    const centerY = (rect.top + rect.bottom) / 2;
+    const topElement = document.elementFromPoint(centerX, centerY);
+    return topElement.classList.contains('ground');
+}
+
 function AddObjectAreas() {
   view.object_areas = []
   $('.object-area').remove();
+  for (var id of player.level.boundary_tile_ids) {
+    AddObjectAreaFromBoundaryId(id)
+  }
   for (var b of Object.values(view.blocks)) {
     var block = b.block
     var object_area_index = 0
@@ -1106,7 +1189,7 @@ function AddObjectAreas() {
 
 function GetBlockDimensions(block) {
   var css = block.css
-  var startTile = document.getElementById(`tile_${block.start_y}-${block.start_x}`);
+  var startTile = document.getElementById(`tile_${block.level_grid}_${block.start_y}-${block.start_x}`);
   var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
   var tileHeight = tileWidth
   return {
@@ -1221,6 +1304,80 @@ function DeleteBlock() {
   xhr.send();
 }
 
+function AddObjectAreaFromBoundaryId(boundary_tile_id) {
+  var $tile = document.getElementById(boundary_tile_id)
+  var objectArea = document.createElement('div');
+
+  objectArea.classList.add('object-area');
+  objectArea.id = 'object_area_' + boundary_tile_id;
+  const width = $($tile).width()
+  const height = $($tile).height()
+  const top = $($tile).offset().top
+  const left = $($tile).offset().left
+
+  $(objectArea).css({
+    width: width + 'px',
+    height: height + 'px',
+    top: top + 'px',
+    left: left + 'px'
+  });
+  
+  if (view.view_block_areas) {
+    document.getElementById("view").appendChild(objectArea)
+  }
+
+  view.object_areas.push({ 
+    block_id: null, 
+    id: boundary_tile_id, 
+    top, 
+    left, 
+    width, 
+    height 
+  });
+}
+
+function SelectBoundariesMousedown(event) {
+  if (!event.target.classList.contains("tile")) return
+  
+  var id = event.target.id;
+  var objectAreaId = `object_area_${id}`;
+  
+  if (!player.level.boundary_tile_ids.contains(id)) {
+    player.level.boundary_tile_ids.push(id);
+    player.level.boundary_tile_ids = Array.from(new Set(player.level.boundary_tile_ids));
+    AddObjectAreaFromBoundaryId(id, true)
+    control.select_boundaries_mousedown = true
+  } else {
+    player.level.boundary_tile_ids.splice(player.level.boundary_tile_ids.indexOf(id), 1);
+    document.getElementById(objectAreaId).remove()
+    control.removing_boundary_tile = true
+    control.select_boundaries_mousedown = false
+  }
+
+
+  $('#boundary-tile-ids').html(JSON.stringify(player.level.boundary_tile_ids))
+}
+
+function SelectBoundariesMousemove(event) {
+
+  if (!event.target.classList.contains("tile") || control.removing_boundary_tile) return
+  if (control.select_boundaries_mousedown) {
+    var id = event.target.id;
+    control.boundary_tile_ids.add(id)
+    player.level.boundary_tile_ids = Array.from(control.boundary_tile_ids)
+
+    let ids = JSON.stringify(Array.from(control.boundary_tile_ids))
+
+    $('#boundary-tile-ids').html(ids)
+    
+    var objectAreaId = `object-area_fromtile-${id}`;
+  
+    if (!document.getElementById(objectAreaId)) {
+      AddObjectAreaFromBoundaryId(id, true)
+    }
+  }
+}
+
 function KeyDown(event) {
   const eventKey = event.key.toLowerCase();
 
@@ -1254,61 +1411,77 @@ function KeyUp(event) {
   view.sprite.rotation[view.sprite.direction].index = 0
 }
 
+function MouseUp(event) {
+  if (control.select_boundaries_mousedown || control.removing_boundary_tile) {
+    control.select_boundaries_mousedown = false;
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/level/" + player.level.id)
+    xhr.addEventListener("load", function() {
+      var res = JSON.parse(this.response);
+      if (res.status == 'success') {
+        LoadView()
+      }
+    });
+    var payload = Object.assign({}, player.level);
+    payload.boundary_tile_ids = JSON.stringify(player.level.boundary_tile_ids)
+    xhr.send(JSON.stringify(payload))
+  }
+  control.removing_boundary_tile = false
+}
 
 $( function() {
   console.log('starting...')
   player = {
     name: getCookieValue("name"),
-    level: getCookieValue("level"),
+    level_id: getCookieValue("level_id"),
     position_x: getCookieValue("position_x"),
     position_y: getCookieValue("position_y"),
     direction: getCookieValue("direction"),
-    z_index: getCookieValue("z_index")
+    z_index: getCookieValue("z_index"),
+    top_left_tile: getCookieValue("top_left_tile"),
+    level_grid: getCookieValue("level_grid")
   }
 
   window.view.sprite.position.left = +player.position_x
   window.view.sprite.position.top = +player.position_y
   window.view.sprite.z_index = +player.z_index
 
-  document.querySelector("#log p").innerHTML = Object.keys(player).map(key => `<div><strong>${key}:</strong> <span>${player[key]}</span></div>`).join('')
+  document.querySelector("#log p").innerHTML = `
+    <span>${player.level}</span>
+  `
+    
 
-  var view = document.getElementById('view')
-  for (var i = 0; i < 400; i++) {
-    var tile = document.createElement('div')
-    tile.id = `tile_${ Math.floor(i / 20) }-${ i % 20 }`
-    tile.innerHTML = tile.id
-    tile.classList.add('tile')
-    MakeDroppable(tile)
-    view.appendChild(tile)
-  }
+  LoadLevel().then(() => {
+    LoadTiles(player.level_grid)
 
-  var biea = document.getElementById('block-image-edit-area')
-  for (var i = 0; i < 49; i++) {
-    var object_area_preview = document.createElement('div')
-    object_area_preview.classList.add('object-area-preview')
-    object_area_preview.id = `object-area-${Math.floor(i / 7)}_${i % 7}`
-    biea.appendChild(object_area_preview)
-  }
+    var biea = document.getElementById('block-image-edit-area')
+    for (var i = 0; i < 49; i++) {
+      var object_area_preview = document.createElement('div')
+      object_area_preview.classList.add('object-area-preview')
+      object_area_preview.id = `object-area-${Math.floor(i / 7)}_${i % 7}`
+      biea.appendChild(object_area_preview)
+    }
 
-  LoadView()
-  LoadImageIds()
+    LoadView()
+    LoadImageIds()
 
-  for (var key in events) {
-    var split_key = key.split(':')
-    document.querySelectorAll(split_key[0]).forEach(element => {
-      element.addEventListener(split_key[1], events[key])
+    for (var key in events) {
+      var split_key = key.split(':')
+      document.querySelectorAll(split_key[0]).forEach(element => {
+        element.addEventListener(split_key[1], events[key])
+      })
+    }
+
+    $('#tabs').tabs()
+
+
+    window.addEventListener('resize', function() {
+      LoadView();
     })
-  }
-
-  $('#tabs').tabs()
 
 
-  window.addEventListener('resize', function() {
-    LoadView();
+    RenderGandalf(window.view.sprite.el)
   })
-
-
-  RenderGandalf(window.view.sprite.el)
 
 } )
 
