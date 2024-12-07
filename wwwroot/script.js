@@ -349,9 +349,10 @@ function MakeDroppable(element) {
       const xDir = Math.abs(Math.floor($(".x-dir").val()))
       const yDir = Math.abs(Math.floor($(".y-dir").val()))
 
-      var id = event.target.id.replace('tile_', '').split('-').map(Number)
+      var id = event.target.id.replace('tile_', '').split("_")
+      id[1] = id[1].split("-").map(Number);
 
-      $('#tile-over-id').html(id[1] + ',' + id[0])
+      $('#tile-over-id').html(event.target.id)
 
       view.drop_area = {
         dimensions: control.copy ? view.blocks[control.block_id].block.dimension : dimensions,
@@ -359,16 +360,17 @@ function MakeDroppable(element) {
         yRepeat: yRepeat,
         xDir: xDir, 
         yDir: yDir,
-        start_x: id[1],
-        start_y: id[0]
+        level_grid: id[0],
+        start_x: id[1][1],
+        start_y: id[1][0]
       }
 
-      for (var y = id[0]; y < id[0] + (dimensions * yRepeat); y += dimensions * (yDir / Math.abs(yDir))) {
-        for (var x = id[1]; x < id[1] + (dimensions * xRepeat); x += dimensions * (xDir / Math.abs(xDir))) {
+      for (var y = id[1][0]; y < id[1][0] + (dimensions * yRepeat); y += dimensions * (yDir / Math.abs(yDir))) {
+        for (var x = id[1][1]; x < id[1][1] + (dimensions * xRepeat); x += dimensions * (xDir / Math.abs(xDir))) {
           for (var i = y; i < y + dimensions; i++) {
             for (var j = x; j < x + dimensions; j++) {
               if (i < view.dimension && j < view.dimension) {
-                $(`#tile_${i}-${j}`).addClass('over')
+                $(`#tile_${id[0]}_${i}-${j}`).addClass('over')
               }
             }
           }
@@ -380,7 +382,7 @@ function MakeDroppable(element) {
 
 function SaveBlocks() {
   var xhr = new XMLHttpRequest()
-  const url = '/save-blocks/' + player.level + '/' + control.image_id
+  const url = '/save-blocks/' + player.level.id + '/' + control.image_id
   xhr.open('POST', url)
   xhr.addEventListener('load', function() {
     let res
@@ -862,7 +864,6 @@ function SelectBlock(event) {
   $("#parent-id").html(block.parent_id)
 
   $('a[href="#edit-block"]').click()
-  $('#ui-id-3').click()
 
   var css = Object.assign({}, view.blocks[control.block_id].block.css);
 

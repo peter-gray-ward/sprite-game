@@ -44,7 +44,7 @@ main {
 	justify-content: center;
 }
 
-.tile.over {
+.tile.over, .tile.ui-droppable-hover {
 	background: aliceblue;
 }
 
