@@ -1,16 +1,12 @@
-namespace App
+namespace App.Middleware
 {
 	public class AuthenticationMiddleware
 	{
 		private readonly RequestDelegate _next;
-		private readonly string _connectionString;
 
-		public AuthenticationMiddleware(RequestDelegate next, string connectionString)
+		public AuthenticationMiddleware(RequestDelegate next)
 		{
 			this._next = next;
-			this._connectionString = connectionString;
-
-			Console.WriteLine("AuthenticationMiddleware._connectionString: " + this._connectionString);
 		}
 
 		public async Task InvokeAsync(HttpContext context)

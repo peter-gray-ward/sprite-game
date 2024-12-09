@@ -1189,7 +1189,6 @@ function AddObjectAreas() {
 }
 
 function GetBlockDimensions(block) {
-  var css = block.css
   var startTile = document.getElementById(`tile_${block.level_grid}_${block.start_y}-${block.start_x}`);
   var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
   var tileHeight = tileWidth

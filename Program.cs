@@ -1,24 +1,11 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.AspNetCore.Http;
-using System.Diagnostics;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Net.Http;
 using System.Text.Json;
 using System.Data;
-using System.Linq;
-using System.Reflection;
-using System;
-using System.IO;
 using System.Text;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authorization;
 using Npgsql;
 using App;
+using App.Services;
+using App.Middleware;
+using App.Controllers;
 
 bool editSchema = false;
 var builder = WebApplication.CreateBuilder(args);
@@ -36,19 +23,20 @@ builder.Services.AddSession(options =>
 // Database connection string
 string connectionString = builder.Configuration.GetConnectionString("CloudConnection");
 
+builder.Services.AddSingleton<DatabaseServices>(provider => new DatabaseServices(connectionString));
+builder.Services.AddScoped<SessionServices>();
+builder.Services.AddScoped<LevelServices>();
+builder.Services.AddScoped<PlayerServices>();
+
 var app = builder.Build();
 
 app.UseStaticFiles();
 app.UseSession();
-app.UseMiddleware<AuthenticationMiddleware>(connectionString);
+app.UseMiddleware<AuthenticationMiddleware>();
 
-// Serve index.html at the root URL
-app.MapGet("/", async context =>
-{
-    context.Response.ContentType = "text/html";
-    await context.Response.SendFileAsync("wwwroot/index.html");
-});
-
+HomeController.MapRoutes(app);
+PlayerController.MapRoutes(app);
+LevelController.MapRoutes(app);
 
 if (editSchema)
 {
@@ -56,93 +44,6 @@ if (editSchema)
 	EditSchema es = new EditSchema(connectionString);
 	es.Run();
 }
-
-app.MapPost("/register", async context =>
-{
-    Console.WriteLine("    /register");
-    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-    try
-    {
-        Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
-        Console.WriteLine("registering", credentials);
-        Player player = new Player();
-        string registered = await player.Register(connectionString, credentials["name"], credentials["password"]);
-        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = registered }));
-    }
-    catch (Exception e) 
-    {
-        context.Response.StatusCode = 500;
-        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Error", details = e.Message }));
-        return;
-    }
-});
-
-app.MapPost("/login", async context =>
-{
-    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-    try
-    {
-        Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
-
-        Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")} - Attempting login with credentials");
-
-        Player player = new Player();
-        await player.Login(connectionString, credentials["name"], credentials["password"]);
-
-        Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")} - Attempted to login");
-
-        if (player.access_token != String.Empty)
-        {
-            Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")} - Login Successful");
-
-            context.Session.SetString("access_token", player.access_token);
-            context.Session.SetString("name", credentials["name"]);
-
-            foreach (PropertyInfo prop in player.GetType().GetProperties())
-            {
-                context.Response.Cookies.Append(prop.Name, prop.GetValue(player).ToString(), new CookieOptions
-                {
-                    HttpOnly = false, // Accessible via JavaScript if needed
-                    Secure = false,
-                    SameSite = SameSiteMode.Lax
-                });
-            }
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", 
-                level_id = player.level_id,
-                position_x = player.position_x,
-                position_y = player.position_y
-            }));
-        }
-        else
-        {
-            context.Response.StatusCode = 401; // Unauthorized
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Invalid credentials" }));
-        }
-    }
-    catch (Exception e) 
-    {
-        context.Response.StatusCode = 400; // Bad Request
-        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Error", details = e.Message }));
-        return;
-    }
-});
-
-app.MapPost("/logout", async context =>
-{
-
-    Console.WriteLine("logging-out");
-    // Clear session data
-    context.Session.Clear();
-
-    // Remove cookies (if applicable)
-    context.Response.Cookies.Delete("name");
-    context.Response.Cookies.Delete(".sprite-game.Session"); // Replace with your actual session cookie name if different
-
-
-    Console.WriteLine("logged-out");
-    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", message = "Logged out successfully" }));
-});
 
 
 // API endpoint for index
@@ -158,89 +59,7 @@ app.MapGet("/api/", async context =>
     await context.Response.WriteAsync(JsonSerializer.Serialize(new { data }));
 });
 
-app.MapGet("/level/{levelId}", async context =>
-{
-    string user_name = context.Session.GetString("name");
 
-    try
-    {
-        string level_id = context.Request.RouteValues["levelId"].ToString();
-        using (var connection = new NpgsqlConnection(connectionString))
-        {
-            await connection.OpenAsync();
-            var command = new NpgsqlCommand(@$"
-                SELECT l.id, l.boundary_tile_ids, l.name
-                FROM level l
-                INNER JOIN player p on (l.player_name = p.name)
-                WHERE p.name = @user_name
-                AND l.id = @level_id
-            ", connection);
-            command.Parameters.AddWithValue("user_name", user_name);
-            command.Parameters.AddWithValue("level_id", Guid.Parse(level_id));
-
-            var reader = await command.ExecuteReaderAsync();
-
-            Dictionary<string, object> level = new();
-
-            while (await reader.ReadAsync())
-            {
-                level["name"] = reader["name"];
-                level["id"] = reader["id"];
-                level["boundary_tile_ids"] = reader["boundary_tile_ids"];
-            }
-            
-            await reader.CloseAsync();
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                status = "success", 
-                data = level 
-            }));
-        }
-    }
-    catch (Exception e)
-    {
-        context.Response.StatusCode = 500;
-        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
-    }
-});
-
-app.MapPost("/level/{levelId}", async context =>
-{
-    string user_name = context.Session.GetString("name");
-
-    try
-    {
-        string level_id = context.Request.RouteValues["levelId"].ToString();
-        var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-        Dictionary<string, JsonElement> level = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body);
-        using (var connection = new NpgsqlConnection(connectionString))
-        {
-            await connection.OpenAsync();
-            var command = new NpgsqlCommand(@$"
-                UPDATE level
-                    set boundary_tile_ids = @boundary_tile_ids
-                WHERE player_name = @player_name
-                AND id = @id
-            ", connection);
-            command.Parameters.AddWithValue("boundary_tile_ids", level["boundary_tile_ids"].GetString());
-            command.Parameters.AddWithValue("player_name", user_name);
-            command.Parameters.AddWithValue("id", Guid.Parse(level["id"].GetString()));
-
-            var reader = await command.ExecuteNonQueryAsync();
-
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                status = "success", 
-                data = level 
-            }));
-        }
-    }
-    catch (Exception e)
-    {
-        context.Response.StatusCode = 500;
-        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
-    }
-});
 
 // Save image endpoint
 app.MapPost("/save-image", async context =>
