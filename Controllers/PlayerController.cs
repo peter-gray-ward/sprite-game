@@ -1,4 +1,5 @@
 using System.Text.Json;
+using App.Models;
 using App.Services;
 
 namespace App.Controllers
@@ -13,7 +14,8 @@ namespace App.Controllers
                 var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
                 try
                 {
-                    Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
+                    Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body) 
+                                                          ?? new Dictionary<string, string>();
                     Console.WriteLine("registering", credentials);
                     string registered = await playerServices.Register(credentials["name"], credentials["password"]);
                     await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = registered }));
@@ -30,11 +32,19 @@ namespace App.Controllers
                 var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
                 try
                 {
-                    Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body);
+                    var credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body) ?? new Dictionary<string, string>();
+                    
+                    if (!credentials.TryGetValue("name", out var name) || !credentials.TryGetValue("password", out var password))
+                    {
+                        context.Response.StatusCode = 400; // Bad Request
+                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Missing credentials" }));
+                        return;
+                    }
 
-                    Player player = await playerServices.Login(credentials["name"], credentials["password"]);
+                    ServiceResult playerResult = await playerServices.Login(name, password);
+                    Player? player = playerResult.data as Player;
 
-                    if (player.access_token != String.Empty)
+                    if (player != null && player.access_token != String.Empty)
                     {
                         sessionServices.Login(context, player);
 

@@ -343,7 +343,7 @@ function MakeDroppable(element) {
     over: function(event, ui) {
       $('.tile').removeClass('over')
 
-      const dimensions = Math.abs(Math.floor($(".drop-dimensions input").val()))
+      const dimension = Math.abs(Math.floor($(".drop-dimensions input").val()))
       const xRepeat = Math.abs(Math.floor($(".x-repeat").val()))
       const yRepeat = Math.abs(Math.floor($(".y-repeat").val()))
       const xDir = Math.abs(Math.floor($(".x-dir").val()))
@@ -355,11 +355,11 @@ function MakeDroppable(element) {
       $('#tile-over-id').html(event.target.id)
 
       view.drop_area = {
-        dimensions: control.copy ? view.blocks[control.block_id].block.dimension : dimensions,
-        xRepeat: xRepeat, 
-        yRepeat: yRepeat,
-        xDir: xDir, 
-        yDir: yDir,
+        dimension: control.copy ? view.blocks[control.block_id].block.dimension : dimension,
+        x_repeat: xRepeat, 
+        y_repeat: yRepeat,
+        x_dir: xDir, 
+        y_dir: yDir,
         level_grid: id[0],
         start_x: id[1][1],
         start_y: id[1][0]
@@ -1091,6 +1091,10 @@ function ApplyBlockEdits() {
   })
   let payload = Object.assign({}, view.blocks[control.block_id].block)
   payload.css = JSON.stringify(payload.css)
+  payload.object_area = JSON.stringify(payload.object_area);
+  if (payload.parent_id.length !== 36) {
+    payload.parent_id = null;
+  }
   xhr.send(JSON.stringify(
     payload
   ));

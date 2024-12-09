@@ -1,3 +1,4 @@
+using App.Models;
 using Npgsql;
 
 namespace App.Services
@@ -13,7 +14,7 @@ namespace App.Services
 		{
 			try
 			{
-				var connection = db.GetConnection();
+				using var connection = db.GetConnection();
 				await connection.OpenAsync();
 
 				// Hash the password using BCrypt
@@ -39,12 +40,12 @@ namespace App.Services
 			}
 		}
 
-		public async Task<Player> Login(string name, string password)
+		public async Task<ServiceResult> Login(string name, string password)
 		{
 			Player player = new Player();
 			try
 			{
-				var connection = db.GetConnection();
+				using var connection = db.GetConnection();
 				await connection.OpenAsync();
 
 				var command = new NpgsqlCommand(@"
@@ -84,7 +85,7 @@ namespace App.Services
 						player.top_left_tile = reader.GetString(7);
 						player.level_grid = reader.GetString(8);
 
-						return player;
+						return new ServiceResult("success", player);
 					}
 					else
 					{
@@ -92,12 +93,12 @@ namespace App.Services
 					}
 				}
 
-				return player;
+				return new ServiceResult("failure", player);
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine($"Error during login: {ex.Message}");
-				return player;
+				return new ServiceResult("error", ex);
 			}
 		}
 	}

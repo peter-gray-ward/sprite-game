@@ -21,8 +21,8 @@ namespace App.Middleware
 			        return;
 			    }
 
-			    string token = context.Session.GetString("access_token");
-			    string name = context.Session.GetString("name");
+			    string? token = context.Session.GetString("access_token");
+			    string? name = context.Session.GetString("name");
 
 				if (token == null)
 				{
@@ -36,6 +36,7 @@ namespace App.Middleware
 			} 
 			catch (Exception e)
 			{
+				Console.WriteLine(e.Message);
 				await _next(context);
 			}
 		}

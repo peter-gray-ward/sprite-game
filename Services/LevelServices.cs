@@ -11,7 +11,7 @@ namespace App.Services
             this.db = db;
         }
     
-        public async Task<Level> GetLevel(string userName, string levelId)
+        public async Task<ServiceResult> GetLevel(string userName, string levelId)
         {
             using var connection = db.GetConnection();
             await connection.OpenAsync();
@@ -31,14 +31,14 @@ namespace App.Services
 
             if (await reader.ReadAsync())
             {
-                level.name = reader["name"].ToString();
-                level.id = Guid.Parse(reader["id"].ToString());
-                level.boundary_tile_ids = reader["boundary_tile_ids"].ToString();
+                level.name = reader["name"]?.ToString() ?? string.Empty;
+                level.id = Guid.Parse(reader["id"]?.ToString() ?? Guid.Empty.ToString());
+                level.boundary_tile_ids = reader["boundary_tile_ids"]?.ToString() ?? string.Empty;
             }
 
-            return level;
+            return new ServiceResult("success", level);
         }
-        public async Task<bool> EditLevel(string userName, Dictionary<string, JsonElement> level)
+        public async Task<ServiceResult> EditLevel(string userName, Dictionary<string, JsonElement> level)
     {
         try
         {
@@ -50,17 +50,32 @@ namespace App.Services
                 WHERE player_name = @player_name
                 AND id = @id
             ", connection);
-            command.Parameters.AddWithValue("boundary_tile_ids", level["boundary_tile_ids"].GetString());
-            command.Parameters.AddWithValue("player_name", userName);
-            command.Parameters.AddWithValue("id", Guid.Parse(level["id"].GetString()));
+            // Check if the property exists and get its value safely
+            if (level.TryGetValue("boundary_tile_ids", out JsonElement boundaryTileIdsElement))
+            {
+                command.Parameters.AddWithValue("boundary_tile_ids", boundaryTileIdsElement.GetString() ?? string.Empty);
+            }
+            else
+            {
+                command.Parameters.AddWithValue("boundary_tile_ids", string.Empty);
+            }
+
+            if (level.TryGetValue("id", out JsonElement idElement))
+            {
+                command.Parameters.AddWithValue("id", Guid.Parse(idElement.GetString() ?? Guid.Empty.ToString()));
+            }
+            else
+            {
+                command.Parameters.AddWithValue("id", Guid.Empty);
+            }
 
             var reader = await command.ExecuteNonQueryAsync();
 
-            return true;
+            return new ServiceResult("success");
         }
         catch (Exception e)
         {
-            return false;
+            return new ServiceResult("error", e);
         }
     }
     }

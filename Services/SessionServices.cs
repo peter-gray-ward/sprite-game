@@ -1,4 +1,5 @@
 using System.Reflection;
+using App.Models;
 
 namespace App.Services
 {
@@ -16,7 +17,7 @@ namespace App.Services
 
             foreach (PropertyInfo prop in player.GetType().GetProperties())
             {
-                context.Response.Cookies.Append(prop.Name, prop.GetValue(player).ToString(), new CookieOptions
+                context.Response.Cookies.Append(prop.Name, prop.GetValue(player)?.ToString() ?? string.Empty, new CookieOptions
                 {
                     HttpOnly = false, // Accessible via JavaScript if needed
                     Secure = false,
