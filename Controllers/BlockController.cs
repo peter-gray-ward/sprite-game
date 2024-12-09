@@ -8,18 +8,16 @@ namespace App.Controllers
 	{
 		public static void MapRoutes(WebApplication app)
 		{
+			
 			app.MapPost("/save-blocks/{levelId}/{imageId}", async (HttpContext context, BlockServices blockServices) =>
 			{
-				string? user_name = context.Session.GetString("name");
-				string? imageId = context.Request.RouteValues["imageId"]?.ToString();
-				string? levelId = context.Request.RouteValues["levelId"]?.ToString();
-
-				if (string.IsNullOrEmpty(user_name)) throw new ArgumentNullException("user_name cannot be null or empty");
-				if (imageId is null) throw new ArgumentNullException("imageId cannot be null");
-				if (levelId is null) throw new ArgumentNullException("levelId cannot be null");
+				string user_name = context.Session.GetString("name") ?? String.Empty;
+				string imageId = context.Request.RouteValues["imageId"]!.ToString() ?? String.Empty;
+				string levelId = context.Request.RouteValues["levelId"]!.ToString() ?? String.Empty;
 
 				var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
 				Block? drop_area = JsonSerializer.Deserialize<Block>(body);
+
 				if (drop_area is null)
 				{
 					context.Response.StatusCode = 400;
@@ -43,7 +41,7 @@ namespace App.Controllers
 
 			app.MapDelete("/delete-block/{recurrence_id}", async (HttpContext context, BlockServices blockServices) =>
 			{
-				string recurrence_id = context.Request.RouteValues["recurrence_id"].ToString();
+				string recurrence_id = context.Request.RouteValues["recurrence_id"]!.ToString() ?? String.Empty;
 
 				ServiceResult deletion = await blockServices.DeleteBlock(recurrence_id);
 				if (deletion.exception is not null)
@@ -61,8 +59,8 @@ namespace App.Controllers
 			{
 				try
 				{
-					string username = context.Session.GetString("name");
-					string recurrence_id = context.Request.RouteValues["recurrence_id"]?.ToString() ?? throw new ArgumentNullException("recurrence_id cannot be null");
+					string username = context.Session.GetString("name") ?? String.Empty;
+					string recurrence_id = context.Request.RouteValues["recurrence_id"]?.ToString() ?? String.Empty;
 					
 					Console.WriteLine(2);
 					var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
@@ -99,13 +97,11 @@ namespace App.Controllers
 			app.MapPost("/update-block-object-area/{recurrence_id}", async (HttpContext context, BlockServices blockServices) => {
 				try
 				{
-					string? username = context.Session.GetString("name");
-
-					if (string.IsNullOrEmpty(username)) throw new ArgumentNullException("user_name cannot be null or empty");
-
-					string recurrence_id = context.Request.RouteValues["recurrence_id"]?.ToString() ?? throw new ArgumentNullException("recurrence_id cannot be null");
+					string username = context.Session.GetString("name") ?? String.Empty;
+					string recurrence_id = context.Request.RouteValues["recurrence_id"]!.ToString() ?? String.Empty;
 					var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
 					Block? block = JsonSerializer.Deserialize<Block>(body);
+					
 					if (block is null)
 					{
 						context.Response.StatusCode = 400;
@@ -136,8 +132,8 @@ namespace App.Controllers
 			{
 				try
 				{
-					string username = context.Session.GetString("name") ?? throw new ArgumentNullException("username cannot be null");
-					string? levelId = context.Request.RouteValues["level_id"]?.ToString() ?? throw new ArgumentNullException("level_id cannot be null");
+					string username = context.Session.GetString("name") ?? String.Empty;
+					string levelId = context.Request.RouteValues["level_id"]!.ToString() ?? String.Empty;
 					
 					ServiceResult blocks = await blockServices.GetBlocks(username, levelId);
 

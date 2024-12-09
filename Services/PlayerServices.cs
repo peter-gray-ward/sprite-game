@@ -10,7 +10,7 @@ namespace App.Services
 		{
 			this.db = db;
 		}
-		public async Task<string> Register(string name, string password)
+		public async Task<ServiceResult> Register(string name, string password)
 		{
 			try
 			{
@@ -31,12 +31,11 @@ namespace App.Services
 
 				await command.ExecuteNonQueryAsync();
 				
-				return "success";
+				return new ServiceResult("success");
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error during registration: {ex.Message}");
-				return "error";
+				return new ServiceResult("error", ex);
 			}
 		}
 
@@ -77,7 +76,7 @@ namespace App.Services
 
 						player.access_token = token.ToString();
 						player.name = reader.GetString(0);
-						player.level_id = reader.GetGuid(1).ToString();
+						player.level_id = reader.GetGuid(1);
 						player.position_x = reader.GetDouble(2);
 						player.position_y = reader.GetDouble(3);
 						player.direction = reader.GetString(5);
@@ -87,17 +86,12 @@ namespace App.Services
 
 						return new ServiceResult("success", player);
 					}
-					else
-					{
-						Console.WriteLine("Passwords do not match!");
-					}
 				}
 
 				return new ServiceResult("failure", player);
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error during login: {ex.Message}");
 				return new ServiceResult("error", ex);
 			}
 		}

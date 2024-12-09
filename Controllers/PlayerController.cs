@@ -10,15 +10,16 @@ namespace App.Controllers
 		{
 			app.MapPost("/register", async (HttpContext context, PlayerServices playerServices) =>
             {
-                Console.WriteLine("    /register");
                 var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
                 try
                 {
-                    Dictionary<string, string> credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body) 
-                                                          ?? new Dictionary<string, string>();
-                    Console.WriteLine("registering", credentials);
-                    string registered = await playerServices.Register(credentials["name"], credentials["password"]);
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = registered }));
+                    Player? player = JsonSerializer.Deserialize<Player>(body);
+                    if (player is null)
+                    {
+                        throw new Exception("Invalid credentials");
+                    }
+                    ServiceResult registered = await playerServices.Register(player.name, player.password);
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = registered.status }));
                 }
                 catch (Exception e) 
                 {
@@ -32,38 +33,33 @@ namespace App.Controllers
                 var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
                 try
                 {
-                    var credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(body) ?? new Dictionary<string, string>();
-                    
-                    if (!credentials.TryGetValue("name", out var name) || !credentials.TryGetValue("password", out var password))
+                    Player? playerLoggingIn = JsonSerializer.Deserialize<Player>(body);
+
+                    if (playerLoggingIn is null)
                     {
-                        context.Response.StatusCode = 400; // Bad Request
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Missing credentials" }));
-                        return;
+                        throw new Exception("Invalid login credentials");
                     }
 
-                    ServiceResult playerResult = await playerServices.Login(name, password);
+                    ServiceResult playerResult = await playerServices.Login(playerLoggingIn.name, playerLoggingIn.password);
                     Player? player = playerResult.data as Player;
 
-                    if (player != null && player.access_token != String.Empty)
+                    if (player is null || player.access_token == String.Empty)
                     {
-                        sessionServices.Login(context, player);
+                        throw new Exception("Invalid login credentials");
+                    }
 
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", 
-                            level_id = player.level_id,
-                            position_x = player.position_x,
-                            position_y = player.position_y
-                        }));
-                    }
-                    else
-                    {
-                        context.Response.StatusCode = 401; // Unauthorized
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Invalid credentials" }));
-                    }
+                    sessionServices.Login(context, player);
+
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", 
+                        level_id = player.level_id,
+                        position_x = player.position_x,
+                        position_y = player.position_y
+                    }));
                 }
                 catch (Exception e) 
                 {
                     context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Error", details = e.Message }));
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
                     return;
                 }
             });
