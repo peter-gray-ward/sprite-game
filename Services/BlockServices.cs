@@ -128,8 +128,8 @@ namespace App.Services
                 command.Parameters.AddWithValue("dimension", block.dimension);
                 command.Parameters.AddWithValue("start_y", block.start_y);
                 command.Parameters.AddWithValue("start_x", block.start_x);
-                command.Parameters.AddWithValue("repeat_y", block.repeat_y);
-                command.Parameters.AddWithValue("repeat_x", block.repeat_x);
+                command.Parameters.AddWithValue("repeat_y", block.repeat_y > 0 ? block.repeat_y : 1);
+                command.Parameters.AddWithValue("repeat_x", block.repeat_x > 0 ? block.repeat_x : 1);
                 command.Parameters.AddWithValue("dir_y", block.dir_y);
                 command.Parameters.AddWithValue("dir_x", block.dir_x);
                 command.Parameters.AddWithValue("translate_object_area", block.translate_object_area);

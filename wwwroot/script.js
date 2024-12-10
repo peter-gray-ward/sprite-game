@@ -274,12 +274,10 @@ function SaveImage(event, callback) {
       window.location.reload()
     }
     if (res.status == 'success') {
+      LoadImageIds();
       control.image_id = res.id
       if (event) {
         $(event.srcElement).addClass('saved')
-      }
-      if (!control.image_urls[tag]) {
-        LoadImageIds()
       }
       if (callback) {
         callback()
@@ -356,8 +354,8 @@ function MakeDroppable(element) {
 
       view.drop_area = {
         dimension: control.copy ? view.blocks[control.block_id].block.dimension : dimension,
-        x_repeat: xRepeat, 
-        y_repeat: yRepeat,
+        repeat_x: xRepeat, 
+        repeat_y: yRepeat,
         x_dir: xDir, 
         y_dir: yDir,
         level_grid: id[0],
@@ -365,12 +363,14 @@ function MakeDroppable(element) {
         start_y: id[1][0]
       }
 
-      for (var y = id[1][0]; y < id[1][0] + (dimensions * yRepeat); y += dimensions * (yDir / Math.abs(yDir))) {
-        for (var x = id[1][1]; x < id[1][1] + (dimensions * xRepeat); x += dimensions * (xDir / Math.abs(xDir))) {
-          for (var i = y; i < y + dimensions; i++) {
-            for (var j = x; j < x + dimensions; j++) {
+      for (var y = id[1][0]; y < id[1][0] + (dimension * yRepeat); y += dimension * (yDir / Math.abs(yDir))) {
+        for (var x = id[1][1]; x < id[1][1] + (dimension * xRepeat); x += dimension * (xDir / Math.abs(xDir))) {
+          for (var i = y; i < y + dimension; i++) {
+            for (var j = x; j < x + dimension; j++) {
               if (i < view.dimension && j < view.dimension) {
-                $(`#tile_${id[0]}_${i}-${j}`).addClass('over')
+                const elem = document.getElementById(`tile_${id[0]}_${i}-${j}`);
+                $(elem).addClass('over')
+                console.log(`#tile_${id[0]}_${i}-${j}`, elem)
               }
             }
           }
@@ -420,6 +420,13 @@ function GetBlocks() {
       var blocks = res.data.map(block => {
         block.object_area = JSON.parse(block.object_area)
         block.css = JSON.parse(block.css)
+        if (!view.blocks[block.id]) {
+          view.blocks[block.id]  = {
+            block: block,
+            divs: [],
+            children_ids: []
+          }
+        }
         return block
       });
       RenderManageBlocks(blocks)
@@ -462,7 +469,7 @@ function RenderManageBlocks(blocks) {
 
 function RenderBlocks(blocks) {
   for (var block of blocks) {
-    
+
     for (var y = block.start_y; 
       (block.dir_y > 0 ? y < block.start_y + (block.dimension * block.repeat_y) : y > block.start_y + (block.dimension * block.repeat_y)); 
       y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
@@ -470,6 +477,10 @@ function RenderBlocks(blocks) {
       for (var x = block.start_x; 
         (block.dir_x > 0 ? x < block.start_x + (block.dimension * block.repeat_x) : x > block.start_x + (block.dimension * block.repeat_x)); 
         x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
+
+        // temporary
+        if (y < 0) y = 0
+        if (x < 0) x = 0
         
         let renderedBlock = Object.assign({}, block);
         renderedBlock.start_x = x;
@@ -521,14 +532,6 @@ function RenderBlocks(blocks) {
         document.getElementById('view').appendChild(div)
 
         MakeDraggable(div)
-
-        if (!view.blocks[renderedBlock.id]) {
-          view.blocks[renderedBlock.id]  = {
-            block: renderedBlock,
-            divs: [],
-            children_ids: []
-          }
-        }
 
         view.blocks[renderedBlock.id].divs.push(div)
       }
@@ -606,7 +609,7 @@ function LoadTiles(level_grid) {
   for (var i = 0; i < 400; i++) {
     var tile = document.createElement('div')
     tile.id = `tile_${level_grid}_${ Math.floor(i / 20) }-${ i % 20 }`
-    tile.innerHTML = tile.id
+    tile.innerHTML = `${ Math.floor(i / 20) }-${ i % 20 }`
     tile.classList.add('tile')
     MakeDroppable(tile)
     view.appendChild(tile)
@@ -1184,8 +1187,16 @@ function AddObjectAreas() {
         let renderedBlock = Object.assign({}, block);
         renderedBlock.start_x = x
         renderedBlock.start_y = y
-        const { top, left, width, height } = GetBlockDimensions(renderedBlock)
-        CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
+        
+
+        // still need to accomodate for expanding to adjacent grids
+        try {
+          const { top, left, width, height } = GetBlockDimensions(renderedBlock)
+
+          CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
+        } catch (err) {
+          continue
+        }
       }
     }
   }
@@ -1194,6 +1205,12 @@ function AddObjectAreas() {
 
 function GetBlockDimensions(block) {
   var startTile = document.getElementById(`tile_${block.level_grid}_${block.start_y}-${block.start_x}`);
+
+
+  // still need to accomodate for expanding to adjacent grids
+  if (!startTile) return null;
+
+
   var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
   var tileHeight = tileWidth
   return {

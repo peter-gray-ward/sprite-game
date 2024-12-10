@@ -21,52 +21,16 @@ namespace App.Controllers
 
                 var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
 
-                // Deserialize the request body into a Dictionary
-                Dictionary<string, object>? requestData;
-                try
-                {
-                    requestData = JsonSerializer.Deserialize<Dictionary<string, object>?>(body);
-                }
-                catch (JsonException ex)
+                SaveImageRequest? saveImageRequest = JsonSerializer.Deserialize<SaveImageRequest>(body);
+
+                if (saveImageRequest is null)
                 {
                     context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Invalid JSON format", details = ex.Message }));
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Malformed request body" }));
                     return;
                 }
 
-                if (requestData is null)
-                {
-                    context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Invalid JSON format"  }));
-                    return;
-                }
-
-                // Check if keys exist and retrieve values safely
-                if (!requestData.TryGetValue("url", out var urlObj) || urlObj is null)
-                {
-                    context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "URL cannot be null" }));
-                    return;
-                }
-                var url = urlObj.ToString();
-
-                if (!requestData.TryGetValue("tag", out var tagObj) || tagObj is null)
-                {
-                    context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Tag cannot be null" }));
-                    return;
-                }
-                var tag = tagObj.ToString();
-
-                // Check for null values before calling SaveImage
-                if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(tag))
-                {
-                    context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "URL and tag cannot be null or empty" }));
-                    return;
-                }
-
-                ServiceResult saved = await imageServices.SaveImage(url, tag, user_name);
+                ServiceResult saved = await imageServices.SaveImage(saveImageRequest.url, saveImageRequest.tag, user_name);
 
                 if (saved.exception is not null)
                 {
@@ -119,21 +83,7 @@ namespace App.Controllers
                     return;
                 }
 
-                var imageIdObj = context.Request.RouteValues["imageId"];
-                if (imageIdObj is null || imageIdObj.ToString() is null)
-                {
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "invalid image id" }));
-                    return;
-                }
-                var imageId = imageIdObj?.ToString();
-
-                // Check if imageId is null before calling GetImage
-                if (string.IsNullOrEmpty(imageId))
-                {
-                    context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Invalid image id" }));
-                    return;
-                }
+                string imageId = context.Request.RouteValues["imageId"]!.ToString() ?? String.Empty;
 
                 ServiceResult imageResult = await imageServices.GetImage(user_name, imageId);
 
@@ -143,8 +93,7 @@ namespace App.Controllers
                     await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = imageResult.exception.Message }));
                     return;
                 }
-
-                // Check if imageResult.data is null before casting
+                
                 if (imageResult.data is not byte[] imageData)
                 {
                     context.Response.StatusCode = 404;

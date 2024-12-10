@@ -9,8 +9,8 @@ namespace App.Models
         public Guid image_id { get; set; }
         public int start_x { get; set; } = 0;
         public int start_y { get; set; } = 0;
-        public int repeat_y { get; set; } = 0;
-        public int repeat_x { get; set; } = 0;
+        public int repeat_y { get; set; } = 1;
+        public int repeat_x { get; set; } = 1;
         public int dir_y { get; set; } = 1;
         public int dir_x { get; set; } = 1;
         public int dimension { get; set; } = 1;
