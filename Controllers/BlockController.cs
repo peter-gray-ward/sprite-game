@@ -1,160 +1,107 @@
-using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using App.Models;
 using App.Services;
+using System.Text.Json;
 
 namespace App.Controllers
 {
-	public static class BlockController
-	{
-		public static void MapRoutes(WebApplication app)
-		{
-			
-			app.MapPost("/save-blocks/{levelId}/{imageId}", async (HttpContext context, BlockServices blockServices) =>
-			{
-				string user_name = context.Session.GetString("name") ?? String.Empty;
-				string imageId = context.Request.RouteValues["imageId"]!.ToString() ?? String.Empty;
-				string levelId = context.Request.RouteValues["levelId"]!.ToString() ?? String.Empty;
+    [ApiController]
+    [Route("blocks")]
+    public class BlockController : ControllerBase
+    {
+        private readonly BlockServices _blockServices;
 
-				var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-				Block? drop_area = JsonSerializer.Deserialize<Block>(body);
+        public BlockController(BlockServices blockServices)
+        {
+            _blockServices = blockServices;
+        }
 
-				if (drop_area is null)
-				{
-					context.Response.StatusCode = 400;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Malformed drop area" }));
-					return;
-				}
-				
-				
-				ServiceResult saved = await blockServices.SaveBlock(user_name, imageId, levelId, drop_area);
+        [HttpPost("save/{levelId}/{imageId}")]
+        public async Task<IActionResult> SaveBlock(string levelId, string imageId, [FromBody] Block dropArea)
+        {
+            string userName = HttpContext.Session.GetString("name") ?? string.Empty;
 
-				if (saved.exception is not null)
-				{
-					context.Response.StatusCode = 500;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = saved.status, message = saved.exception }));
-					return;
-				}
-				
-				context.Response.StatusCode = 200;
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = saved.status, message = saved.data }));
-			});
+            if (dropArea == null)
+            {
+                return BadRequest(new { status = "error", message = "Malformed drop area" });
+            }
 
-			app.MapDelete("/delete-block/{recurrence_id}", async (HttpContext context, BlockServices blockServices) =>
-			{
-				string recurrence_id = context.Request.RouteValues["recurrence_id"]!.ToString() ?? String.Empty;
+            var saved = await _blockServices.SaveBlock(userName, imageId, levelId, dropArea);
 
-				ServiceResult deletion = await blockServices.DeleteBlock(recurrence_id);
-				if (deletion.exception is not null)
-				{
-					context.Response.StatusCode = 500;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = deletion.status, message = deletion.exception.Message }));
-					return;
-				}
+            if (saved.exception != null)
+            {
+                return StatusCode(500, new { status = saved.status, message = saved.exception });
+            }
 
-				context.Response.StatusCode = 200;
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = deletion.status }));
-			});
+            return Ok(new { status = saved.status, message = saved.data });
+        }
 
-			app.MapPost("/update-block/{recurrence_id}", async (HttpContext context, BlockServices blockServices) =>
-			{
-				try
-				{
-					string username = context.Session.GetString("name") ?? String.Empty;
-					string recurrence_id = context.Request.RouteValues["recurrence_id"]?.ToString() ?? String.Empty;
-					
-					Console.WriteLine(2);
-					var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-					
-					Block? block = JsonSerializer.Deserialize<Block>(body);
-					
-					if (block is null)
-					{
-						context.Response.StatusCode = 400;
-						await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Malformed block" }));
-						return;
-					}
+        [HttpDelete("delete/{recurrenceId}")]
+        public async Task<IActionResult> DeleteBlock(string recurrenceId)
+        {
+            var deletion = await _blockServices.DeleteBlock(recurrenceId);
 
-					ServiceResult update = await blockServices.UpdateBlock(username, recurrence_id, block);
+            if (deletion.exception != null)
+            {
+                return StatusCode(500, new { status = deletion.status, message = deletion.exception.Message });
+            }
 
-					if (update.exception is not null)
-					{
-						context.Response.StatusCode = 500;
-						await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = update.status, message = update.exception.Message }));
-						return;
-					}
+            return Ok(new { status = deletion.status });
+        }
 
-					context.Response.StatusCode = 200;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = update.status }));
-				}
-				catch (Exception ex)
-				{
-					context.Response.StatusCode = 500;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = ex.Message}));
-					return;
-				}
-			});
+        [HttpPost("update/{recurrenceId}")]
+        public async Task<IActionResult> UpdateBlock(string recurrenceId, [FromBody] Block block)
+        {
+            string userName = HttpContext.Session.GetString("name") ?? string.Empty;
 
-			app.MapPost("/update-block-object-area/{recurrence_id}", async (HttpContext context, BlockServices blockServices) => {
-				try
-				{
-					string username = context.Session.GetString("name") ?? String.Empty;
-					string recurrence_id = context.Request.RouteValues["recurrence_id"]!.ToString() ?? String.Empty;
-					var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-					Block? block = JsonSerializer.Deserialize<Block>(body);
-					
-					if (block is null)
-					{
-						context.Response.StatusCode = 400;
-						await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Malformed drop area" }));
-						return;
-					}
+            if (block == null)
+            {
+                return BadRequest(new { status = "error", message = "Malformed block" });
+            }
 
-					ServiceResult update = await blockServices.UpdateObjectArea(recurrence_id, block);
-					if (update.exception is not null)
-					{
-						context.Response.StatusCode = 500;
-						await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = update.status, message = update.exception.Message }));
-						return;
-					}
+            var update = await _blockServices.UpdateBlock(userName, recurrenceId, block);
 
-					context.Response.StatusCode = 200;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = update.status, data = block.object_area}));
-				}
-				catch (Exception ex)
-				{
-					context.Response.StatusCode = 500;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = ex.Message}));
-					return;
-				}
-			});
+            if (update.exception != null)
+            {
+                return StatusCode(500, new { status = update.status, message = update.exception.Message });
+            }
 
-			app.MapGet("/get-blocks/{level_id}", async (HttpContext context, BlockServices blockServices) =>
-			{
-				try
-				{
-					string username = context.Session.GetString("name") ?? String.Empty;
-					string levelId = context.Request.RouteValues["level_id"]!.ToString() ?? String.Empty;
-					
-					ServiceResult blocks = await blockServices.GetBlocks(username, levelId);
+            return Ok(new { status = update.status });
+        }
 
-					if (blocks.exception is not null)
-					{
-						context.Response.StatusCode = 500;
-						await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = blocks.exception.Message }));
-						return;
-					}
+        [HttpPost("update-object-area/{recurrenceId}")]
+        public async Task<IActionResult> UpdateObjectArea(string recurrenceId, [FromBody] Block block)
+        {
+            string userName = HttpContext.Session.GetString("name") ?? string.Empty;
 
-					context.Response.StatusCode = 200;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = blocks.status, data = blocks.data }));
-				}
-				catch (Exception ex)
-				{
-					context.Response.StatusCode = 500;
-					await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = ex.Message}));
-					return;
-				}
-			});
+            if (block == null)
+            {
+                return BadRequest(new { status = "error", message = "Malformed drop area" });
+            }
 
-		}
-	}
+            var update = await _blockServices.UpdateObjectArea(recurrenceId, block);
+
+            if (update.exception != null)
+            {
+                return StatusCode(500, new { status = update.status, message = update.exception.Message });
+            }
+
+            return Ok(new { status = update.status, data = block.object_area });
+        }
+
+        [HttpGet("get/{levelId}")]
+        public async Task<IActionResult> GetBlocks(string levelId)
+        {
+            string userName = HttpContext.Session.GetString("name") ?? string.Empty;
+
+            var blocks = await _blockServices.GetBlocks(userName, levelId);
+
+            if (blocks.exception != null)
+            {
+                return StatusCode(500, new { status = "error", message = blocks.exception.Message });
+            }
+
+            return Ok(new { status = blocks.status, data = blocks.data });
+        }
+    }
 }

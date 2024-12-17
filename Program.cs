@@ -35,17 +35,16 @@ builder.Services.AddScoped<PlayerServices>();
 builder.Services.AddScoped<ImageServices>();
 builder.Services.AddScoped<BlockServices>();
 
+builder.Services.AddControllers();
+
 var app = builder.Build();
 
 app.UseStaticFiles();
 app.UseSession();
+app.UseRouting();
 app.UseMiddleware<AuthenticationMiddleware>();
+app.MapControllers();
 
-HomeController.MapRoutes(app);
-PlayerController.MapRoutes(app);
-LevelController.MapRoutes(app);
-ImageController.MapRoutes(app);
-BlockController.MapRoutes(app);
 
 if (editSchema)
 {

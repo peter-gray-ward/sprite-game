@@ -146,7 +146,8 @@ function getCookieValue(cookieName) {
 
 function Logout() {
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', '/logout')
+  xhr.open('POST', '/player/logout')
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
     var res = JSON.parse(this.response)
     if (res.status == 'success') {
@@ -265,13 +266,14 @@ function SaveImage(event, callback) {
   var tag = event ? event.srcElement.dataset.tag : $("#pixabay-search").val()
   var url = event ? event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '') : control.pixabay_url
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', '/save-image')
+  xhr.open('POST', '/image/save')
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
     let res
     try {
       res = JSON.parse(this.response)
     } catch (err) {
-      window.location.reload()
+      console.error(err)
     }
     if (res.status == 'success') {
       LoadImageIds();
@@ -382,14 +384,15 @@ function MakeDroppable(element) {
 
 function SaveBlocks() {
   var xhr = new XMLHttpRequest()
-  const url = '/save-blocks/' + player.level.id + '/' + control.image_id
+  const url = '/blocks/save/' + player.level.id + '/' + control.image_id
   xhr.open('POST', url)
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
     let res
     try {
       res = JSON.parse(this.response)
     } catch (err) {
-      window.location.reload()
+      console.error(err)
     }
     if (res.status == 'success') {
       control.needsUpdate = true
@@ -407,13 +410,14 @@ function GetBlocks() {
     element.remove()
   })
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", '/get-blocks/' + player.level_id);
+  xhr.open("GET", '/blocks/get/' + player.level_id);
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener("load", function() {
     let res
     try {
       res = JSON.parse(this.response)
     } catch (err) {
-      window.location.reload()
+      console.error(err)
     }
     if (res.status == 'success') {
       control.needsUpdate = false
@@ -454,7 +458,7 @@ function RenderManageBlocks(blocks) {
               ${
                 keys.map(key => {
                   switch (key) {
-                  case 'image_id': return `<div class="td image" style="background-image: url(/get-image/${block[key]})"></div>`
+                  case 'image_id': return `<div class="td image" style="background-image: url(/image/${block[key]})"></div>`
                   default: return `<div class="td">${block[key]}</div>`
                   }
                 }).join('')
@@ -494,7 +498,7 @@ function RenderBlocks(blocks) {
         }
 
         var css = Object.assign({}, renderedBlock.css);
-        css.backgroundImage = `url(/get-image/${renderedBlock.image_id})`
+        css.backgroundImage = `url(/image/${renderedBlock.image_id})`
 
         if (block.random_rotation > 0) {
           var randomRotation = 'rotate(' + Math.floor(Math.random() * 4) * 90 + 'deg)';
@@ -587,6 +591,7 @@ function LoadLevel() {
   return new Promise(resolve => {
     var xhr = new XMLHttpRequest();
     xhr.open("GET", "/level/" + player.level_id);
+    xhr.setRequestHeader("Content-Type", "application/json");
     xhr.addEventListener("load", function() {
       var res = JSON.parse(this.response)
       if (res.status == 'success') {
@@ -779,13 +784,14 @@ function RenderGandalf() {
 
 function LoadImageIds() {
   var xhr = new XMLHttpRequest()
-  xhr.open('GET', '/get-image-ids')
+  xhr.open('GET', '/image/ids')
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
     let res
     try {
       res = JSON.parse(this.response)
     } catch (err) {
-      window.location.reload()
+      console.error(err)
     }
     if (res.status == 'success') {
       var imageBrowseSelect = document.getElementById('image-browse-select')
@@ -804,7 +810,7 @@ function LoadImageIds() {
         }
       }
       for (var i = 0; i < res.data.length; i++) {
-        control.image_urls[res.data[i].tag].push(`/get-image/${res.data[i].id}`)
+        control.image_urls[res.data[i].tag].push(`/image/${res.data[i].id}`)
       }
     }
   })
@@ -872,7 +878,7 @@ function SelectBlock(event) {
 
   $('#block-css').val(JSON.stringify(css, null, 1))
 
-  css.backgroundImage = `url(/get-image/${view.blocks[control.block_id].block.image_id})`;
+  css.backgroundImage = `url(/image/${view.blocks[control.block_id].block.image_id})`;
   css.transform = css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
 
   $('#block-image').css(css)
@@ -967,7 +973,8 @@ function ObjectAreaPreviewMouseup(event) {
 
 function UpdateBlock() {
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', `/update-block-object-area/${view.blocks[control.block_id].block.recurrence_id}`)
+  xhr.open('POST', `/blocks/update-object-area/${view.blocks[control.block_id].block.recurrence_id}`)
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
     var res = JSON.parse(this.response)
     if (res.status == 'success') {
@@ -1082,7 +1089,8 @@ function ApplyBlockEdits() {
   });
 
   var xhr = new XMLHttpRequest()
-  xhr.open('POST', `/update-block/${view.blocks[control.block_id].block.recurrence_id}`)
+  xhr.open('POST', `/blocks/update/${view.blocks[control.block_id].block.recurrence_id}`)
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
     let res
     try {
@@ -1146,7 +1154,8 @@ function ChangeBlockPosition() {
   }
 
   var xhr = new XMLHttpRequest();
-  xhr.open("POST", "/update-block/" + block.recurrence_id)
+  xhr.open("POST", "/blocks/update/" + block.recurrence_id)
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
     var res = JSON.parse(this.response);
     if (res.status == 'success') {
@@ -1313,7 +1322,8 @@ function ChangeViewObjectAreas() {
 
 function DeleteBlock() {
   var xhr = new XMLHttpRequest();
-  xhr.open("DELETE", "/delete-block/" + view.blocks[control.block_id].block.recurrence_id);
+  xhr.open("DELETE", "/blocks/delete/" + view.blocks[control.block_id].block.recurrence_id);
+  xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener("load", function() {
     var res = JSON.parse(this.response);
     if (res.status == 'success') {
@@ -1437,6 +1447,7 @@ function MouseUp(event) {
     control.select_boundaries_mousedown = false;
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "/level/" + player.level.id)
+    xhr.setRequestHeader("Content-Type", "application/json");
     xhr.addEventListener("load", function() {
       var res = JSON.parse(this.response);
       if (res.status == 'success') {

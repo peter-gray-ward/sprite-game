@@ -1,108 +1,110 @@
-using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using App.Models;
 using App.Services;
+using System.Text.Json;
 
 namespace App.Controllers
 {
-	public static class ImageController
-	{
-		public static void MapRoutes(WebApplication app)
-		{
-			app.MapPost("/save-image", async (HttpContext context, ImageServices imageServices) =>
+    [ApiController]
+    [Route("image")]
+    public class ImageController : ControllerBase
+    {
+        private readonly ImageServices _imageServices;
+
+        public ImageController(ImageServices imageServices)
+        {
+            _imageServices = imageServices;
+        }
+
+        [HttpPost("save")]
+        public async Task<IActionResult> SaveImage([FromBody] SaveImageRequest saveImageRequest)
+        {
+            string? userName = HttpContext.Session.GetString("name");
+
+            if (userName == null)
             {
-                string? user_name = context.Session.GetString("name");
+                return Unauthorized(new { status = "error", message = "User not authenticated" });
+            }
 
-                if (user_name is null)
-                {
-                    context.Response.StatusCode = 401;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "User not authenticated" }));
-                    return;
-                }
-
-                var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-
-                SaveImageRequest? saveImageRequest = JsonSerializer.Deserialize<SaveImageRequest>(body);
-
-                if (saveImageRequest is null)
-                {
-                    context.Response.StatusCode = 400; // Bad Request
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Malformed request body" }));
-                    return;
-                }
-
-                ServiceResult saved = await imageServices.SaveImage(saveImageRequest.url, saveImageRequest.tag, user_name);
-
-                if (saved.exception is not null)
-                {
-                    context.Response.StatusCode = 500;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = saved.exception.Message }));
-                    return;
-                }
-
-                context.Response.StatusCode = 201;
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "success", id = saved.data }));
-            });
-
-            app.MapGet("/get-image-ids", async (HttpContext context, ImageServices imageServices) =>
+            if (saveImageRequest == null)
             {
-                string? user_name = context.Session.GetString("name");
+                return BadRequest(new { status = "error", message = "Malformed request body" });
+            }
 
-                if (user_name is null)
-                {
-                    context.Response.StatusCode = 401;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "User not authenticated" }));
-                    return;
-                }
-
-                Console.WriteLine("Getting image ids for " + user_name);
-
-                ServiceResult imageIdResult = await imageServices.GetImageIds(user_name);
-
-                if (imageIdResult.exception is not null)
-                {
-                    context.Response.StatusCode = 500;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = imageIdResult.exception.Message }));
-                    return;
-                }
-
-                context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                    status = "success", 
-                    data = imageIdResult.data 
-                }));
-            });
-
-            app.MapGet("/get-image/{imageId}", async (HttpContext context, ImageServices imageServices) =>
+            try
             {
-                string? user_name = context.Session.GetString("name");
+                ServiceResult saved = await _imageServices.SaveImage(saveImageRequest.url, saveImageRequest.tag, userName);
 
-                if (user_name is null)
+                if (saved.exception != null)
                 {
-                    context.Response.StatusCode = 401;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "User not authenticated" }));
-                    return;
+                    return StatusCode(500, new { status = "error", message = saved.exception.Message });
                 }
 
-                string imageId = context.Request.RouteValues["imageId"]!.ToString() ?? String.Empty;
+                return Created(string.Empty, new { status = "success", id = saved.data });
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, new { status = "error", message = e.Message });
+            }
+        }
 
-                ServiceResult imageResult = await imageServices.GetImage(user_name, imageId);
+        [HttpGet("ids")]
+        public async Task<IActionResult> GetImageIds()
+        {
+            string? userName = HttpContext.Session.GetString("name");
 
-                if (imageResult.exception is not null)
+            if (userName == null)
+            {
+                return Unauthorized(new { status = "error", message = "User not authenticated" });
+            }
+
+            try
+            {
+                ServiceResult imageIdResult = await _imageServices.GetImageIds(userName);
+
+                if (imageIdResult.exception != null)
                 {
-                    context.Response.StatusCode = 404;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = imageResult.exception.Message }));
-                    return;
+                    return StatusCode(500, new { status = "error", message = imageIdResult.exception.Message });
                 }
-                
+
+                return Ok(new { status = "success", data = imageIdResult.data });
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, new { status = "error", message = e.Message });
+            }
+        }
+
+        [HttpGet("{imageId}")]
+        public async Task<IActionResult> GetImage(string imageId)
+        {
+            string? userName = HttpContext.Session.GetString("name");
+
+            if (userName == null)
+            {
+                return Unauthorized(new { status = "error", message = "User not authenticated" });
+            }
+
+            try
+            {
+                ServiceResult imageResult = await _imageServices.GetImage(userName, imageId);
+
+                if (imageResult.exception != null)
+                {
+                    return NotFound(new { status = "error", message = imageResult.exception.Message });
+                }
+
                 if (imageResult.data is not byte[] imageData)
                 {
-                    context.Response.StatusCode = 404;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = "Image data not found" }));
-                    return;
+                    return NotFound(new { status = "error", message = "Image data not found" });
                 }
-                context.Response.ContentType = "image/png";
-                await context.Response.Body.WriteAsync(imageData, 0, imageData.Length);
-            });
-		}
-	}
+
+                return File(imageData, "image/png");
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, new { status = "error", message = e.Message });
+            }
+        }
+    }
 }

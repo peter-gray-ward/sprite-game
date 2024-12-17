@@ -13,9 +13,9 @@ namespace App.Middleware
 		{
 			try
 			{
-				if (context.Request.Path.Equals("/register", StringComparison.OrdinalIgnoreCase) ||
-		        	context.Request.Path.Equals("/login", StringComparison.OrdinalIgnoreCase) ||
-		        	context.Request.Path.Equals("/logout", StringComparison.OrdinalIgnoreCase))
+				if (context.Request.Path.Equals("/player/register", StringComparison.OrdinalIgnoreCase) ||
+		        	context.Request.Path.Equals("/player/login", StringComparison.OrdinalIgnoreCase) ||
+		        	context.Request.Path.Equals("/player/logout", StringComparison.OrdinalIgnoreCase))
 			    {
 			        await _next(context); // Continue to the next middleware
 			        return;

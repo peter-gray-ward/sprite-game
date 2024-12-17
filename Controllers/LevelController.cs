@@ -1,133 +1,78 @@
-using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using App.Models;
 using App.Services;
+using System.Text.Json;
 
 namespace App.Controllers
 {
-	public static class LevelController
-	{
-		public static void MapRoutes(WebApplication app)
-		{
-			app.MapGet("/level/{levelId}", async (HttpContext context, LevelServices levelServices) =>
+    [ApiController]
+    [Route("level")]
+    public class LevelController : ControllerBase
+    {
+        private readonly LevelServices _levelServices;
+
+        public LevelController(LevelServices levelServices)
+        {
+            _levelServices = levelServices;
+        }
+
+        [HttpGet("{levelId}")]
+        public async Task<IActionResult> GetLevel(string levelId)
+        {
+            string? userName = HttpContext.Session.GetString("name");
+
+            if (userName == null)
             {
-                string? user_name = context.Session.GetString("name");
+                return BadRequest(new { status = "error", message = "User name is required." });
+            }
 
-                if (user_name == null)
-                {
-                    context.Response.StatusCode = 400;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                        status = "error", 
-                        message = "User name is required." 
-                    }));
-                    return;
-                }
-
-                try
-                {
-                    string? level_id = context.Request.RouteValues["levelId"]?.ToString();
-                    if (level_id == null)
-                    {
-                        context.Response.StatusCode = 400;
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                            status = "error", 
-                            message = "Level ID is required." 
-                        }));
-                        return;
-                    }
-                    ServiceResult level = await levelServices.GetLevel(user_name, level_id);
-                        
-                    if (level.exception is not null)
-                    {
-                        context.Response.StatusCode = 500;
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = level.status, message = level.exception.Message }));
-                        return;
-                    }
-
-                    context.Response.ContentType = "application/json";
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                        status = "success", 
-                        data = level.data
-                    }));
-                }
-                catch (Exception e)
-                {
-                    context.Response.StatusCode = 500;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
-                }
-            });
-
-            app.MapPost("/level/{levelId}", async (HttpContext context, LevelServices levelServices) =>
+            try
             {
-                string? user_name = context.Session.GetString("name");
+                ServiceResult level = await _levelServices.GetLevel(userName, levelId);
 
-                if (user_name == null)
+                if (level.exception != null)
                 {
-                    context.Response.StatusCode = 400;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                        status = "error", 
-                        message = "User name is required." 
-                    }));
-                    return;
+                    return StatusCode(500, new { status = level.status, message = level.exception.Message });
                 }
 
-                try
-                {
-                    string? level_id = context.Request.RouteValues["levelId"]?.ToString();
-                    if (level_id == null)
-                    {
-                        context.Response.StatusCode = 400;
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                            status = "error", 
-                            message = "Level ID is required." 
-                        }));
-                        return;
-                    }
-                    var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-                    if (string.IsNullOrEmpty(body))
-                    {
-                        context.Response.StatusCode = 400;
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                            status = "error", 
-                            message = "Request body cannot be empty." 
-                        }));
-                        return;
-                    }
-                    Dictionary<string, JsonElement>? level = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(body);
-                    
-                    if (level == null)
-                    {
-                        context.Response.StatusCode = 400;
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                            status = "error", 
-                            message = "Invalid request body." 
-                        }));
-                        return;
-                    }
-                    ServiceResult edited = await levelServices.EditLevel(user_name, level);
-                        
-                    if (edited.exception is not null) 
-                    {
-                        context.Response.ContentType = "application/json";
-                        await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                            status = "error",
-                            message = edited.exception.Message
-                        }));
+                return Ok(new { status = "success", data = level.data });
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, new { status = "error", message = e.Message });
+            }
+        }
 
-                        return;
-                    }
+        [HttpPost("{levelId}")]
+        public async Task<IActionResult> EditLevel(string levelId, [FromBody] Dictionary<string, JsonElement> levelData)
+        {
+            string? userName = HttpContext.Session.GetString("name");
 
-                    context.Response.ContentType = "application/json";
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { 
-                        status = edited.status, 
-                        data = edited.data 
-                    }));
-                }
-                catch (Exception e)
+            if (userName == null)
+            {
+                return BadRequest(new { status = "error", message = "User name is required." });
+            }
+
+            if (levelData == null || !levelData.Any())
+            {
+                return BadRequest(new { status = "error", message = "Request body cannot be empty." });
+            }
+
+            try
+            {
+                ServiceResult edited = await _levelServices.EditLevel(userName, levelData);
+
+                if (edited.exception != null)
                 {
-                    context.Response.StatusCode = 500;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { status = "error", message = e.Message }));
+                    return StatusCode(500, new { status = "error", message = edited.exception.Message });
                 }
-            });
-		}
-	}
+
+                return Ok(new { status = edited.status, data = edited.data });
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, new { status = "error", message = e.Message });
+            }
+        }
+    }
 }

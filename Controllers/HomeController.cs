@@ -1,14 +1,25 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Hosting;
+using System.IO;
+
 namespace App.Controllers
 {
-	public static class HomeController
-	{
-		public static void MapRoutes(WebApplication app)
-		{
-			app.MapGet("/", async context =>
-			{
-			    context.Response.ContentType = "text/html";
-			    await context.Response.SendFileAsync("wwwroot/index.html");
-			});
-		}
-	}
+    [ApiController]
+    [Route("/")]
+    public class HomeController : ControllerBase
+    {
+        private readonly IWebHostEnvironment _env;
+
+        public HomeController(IWebHostEnvironment env)
+        {
+            _env = env;
+        }
+
+        [HttpGet("")]
+        public IActionResult Index()
+        {
+            var filePath = Path.Combine(_env.WebRootPath, "index.html");
+            return PhysicalFile(filePath, "text/html");
+        }
+    }
 }

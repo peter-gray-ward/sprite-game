@@ -113,7 +113,7 @@
 			event.preventDefault(); // Prevent form from reloading the page
 
 			const x = new XMLHttpRequest();
-			x.open("POST", "/register");
+			x.open("POST", "/player/register");
 			x.setRequestHeader("Content-Type", "application/json");
 			x.addEventListener('load', function() {
 				const res = JSON.parse(this.response);
@@ -130,7 +130,7 @@
 
 			const x = new XMLHttpRequest();
 			x.withCredentials = true;
-			x.open("POST", "/login");
+			x.open("POST", "/player/login");
 			x.setRequestHeader("Content-Type", "application/json");
 			x.addEventListener('load', function() {
 				const res = JSON.parse(this.response);
