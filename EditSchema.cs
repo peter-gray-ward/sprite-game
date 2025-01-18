@@ -18,12 +18,19 @@ namespace App
 					DROP TABLE IF EXISTS level;
 					CREATE TABLE level (
 						id UUID PRIMARY KEY,
-						user_id UUID NOT NULL,
-						boundary_tile_ids TEXT
+						name TEXT NOT NULL,
+						player_name TEXT NOT NULL,
+						boundary_tile_ids TEXT,
+						exit_tile_map TEXT
 					);
 
-					DROP TABLE IF EXISTS Block;
-					CREATE TABLE Block (
+					-- default level!
+					INSERT INTO level
+					(id, name, player_name, boundary_tile_ids, exit_tile_map)
+					VALUES
+					('5f86d38b-6f9d-4c03-867f-3c03a50bb797', 'Level One', 'peter', '', '');
+
+					CREATE TABLE IF NOT EXISTS Block (
 						id UUID PRIMARY KEY,
 						recurrence_id UUID,
 						user_name TEXT NOT NULL,
@@ -45,8 +52,7 @@ namespace App
 						parent_id UUID
 					);
 
-					DROP TABLE IF EXISTS Player;
-					CREATE TABLE Player (
+					CREATE TABLE IF NOT EXISTS Player (
 						name TEXT PRIMARY KEY NOT NULL,
 						password TEXT NOT NULL,
 						level INT NOT NULL,

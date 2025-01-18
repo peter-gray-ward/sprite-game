@@ -23,7 +23,10 @@ var events = {
 
   'window:keydown': KeyDown,
   'window:keyup': KeyUp,
-  'window:mouseup': MouseUp
+  'window:mouseup': MouseUp,
+
+  '#level-name:change': SerializeAndSaveLevelMetadata,
+  '#level-name:keyup': SerializeAndSaveLevelMetadata
 }
 
 Array.prototype.contains = function(str) {
@@ -572,12 +575,12 @@ function SetZIndexes() {
             } 
           }
           $(div).css("z-index", bottom);
-          // $(div).html(bottom + ' [' + view.blocks[id].divs.length + ']')
+          $(div).html(bottom + ' [' + view.blocks[id].divs.length + ']')
           for (var id2 in view.blocks) {
             if (view.blocks[id2].block.parent_id == view.blocks[id].block.id) {
               for (var div2 of view.blocks[id2].divs) {
                 $(div2).css('z-index', bottom + 1)
-                // $(div2).html(bottom + 1)
+                $(div2).html(bottom + 1)
               }
             }
           }
@@ -596,7 +599,9 @@ function LoadLevel() {
       var res = JSON.parse(this.response)
       if (res.status == 'success') {
         player.level = res.data;
-        player.level.boundary_tile_ids = JSON.parse(player.level.boundary_tile_ids)
+        try {
+          player.level.boundary_tile_ids = JSON.parse(player.level.boundary_tile_ids)
+        } catch (NoTilesYet) {}
         for (var id of player.level.boundary_tile_ids) {
           control.boundary_tile_ids.add(id)
         }
@@ -690,8 +695,13 @@ function RenderGandalf() {
     width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
     height: `${sprite$viewHeight}vh`,
     top: view.sprite.position.top * view.$height,
-    left: view.sprite.position.left * view.$height,
-    zIndex: Math.floor(view.sprite.position.top * view.$height + sprite$viewHeight * 0.01 * 0.75 * view.$height)
+    left: view.sprite.position.left * view.$height
+  };
+
+  switch (view.sprite.direction) {
+  default:
+    css.zIndex = Math.floor(css.top + (sprite$viewHeight * 0.01 * window.innerHeight))
+    break;
   }
 
   if (i++ == 100) {
@@ -776,6 +786,7 @@ function RenderGandalf() {
   
 
   $(view.sprite.el).css(css);
+  $(view.sprite.el).html(css.zIndex)
 
   $("#object-areas-count").html(view.object_areas.length)
 
@@ -1518,3 +1529,18 @@ $( function() {
 } )
 
 
+
+
+function SerializeAndSaveLevelMetadata() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/level/' + player.level.id);
+  xhr.setRequestHeader("content-type", "application/json");
+  xhr.addEventListener("load", function() {
+    var res = JSON.parse(this.response);
+    console.log("saved level", res);
+  });
+  var levelRequest = player.level;
+  levelRequest.name = document.getElementById('level-name').value; // vadefault
+  levelRequest.boundary_tile_ids = JSON.stringify(levelRequest.boundary_tile_ids);
+  xhr.send(JSON.stringify(levelRequest));
+}

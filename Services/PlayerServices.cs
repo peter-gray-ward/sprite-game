@@ -48,7 +48,7 @@ namespace App.Services
 				await connection.OpenAsync();
 
 				var command = new NpgsqlCommand(@"
-					SELECT 
+					SELECT
 						name, 
 						level_id, 
 						position_x, 

@@ -48,7 +48,7 @@ app.MapControllers();
 
 if (editSchema)
 {
-    Console.WriteLine("connection string: " + connectionString);
+    Console.WriteLine("EDIT SCHEMA\n\tconnection string: " + connectionString);
 	EditSchema es = new EditSchema(connectionString);
 	es.Run();
 }
