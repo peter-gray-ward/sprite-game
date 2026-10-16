@@ -13,6 +13,7 @@ namespace App.Services
         }
         public async Task<ServiceResult> SaveBlock(string user_name, string imageId, string levelId, Block drop_area)
         {
+            Console.WriteLine("saving a block");
             try
             {
                 using var connection = db.GetConnection();
@@ -35,7 +36,13 @@ namespace App.Services
                         dir_y,
                         dir_x,
                         dimension,
-                        recurrence_id
+                        recurrence_id,
+                        translate_object_area,
+                        random_rotation,
+                        ground,
+                        parent_id,
+                        css,
+                        object_area
                     )
                     VALUES
                     (
@@ -51,9 +58,22 @@ namespace App.Services
                         @dir_y,
                         @dir_x,
                         @dimension,
-                        @recurrence_id
+                        @recurrence_id,
+                        @translate_object_area,
+                        @random_rotation,
+                        @ground,
+                        @parent_id,
+                        @css,
+                        @object_area
                     )
                 ", connection);
+
+                var json = JsonSerializer.Serialize(drop_area, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+
+                Console.WriteLine(json);
 
                 command.Parameters.AddWithValue("id", id);
                 command.Parameters.AddWithValue("user_name", user_name);
@@ -68,6 +88,19 @@ namespace App.Services
                 command.Parameters.AddWithValue("dir_x", drop_area.dir_y / Math.Abs(drop_area.dir_y));
                 command.Parameters.AddWithValue("dimension", drop_area.dimension);
                 command.Parameters.AddWithValue("recurrence_id", recurrence_id);
+                command.Parameters.AddWithValue("translate_object_area", drop_area.translate_object_area);
+                command.Parameters.AddWithValue("random_rotation", drop_area.random_rotation);
+                command.Parameters.AddWithValue("ground", drop_area.ground);
+
+                command.Parameters.AddWithValue("object_area", drop_area.object_area);
+
+                command.Parameters.Add(
+                    "parent_id",
+                    NpgsqlTypes.NpgsqlDbType.Uuid
+                ).Value = drop_area.parent_id.HasValue
+                    ? drop_area.parent_id.Value
+                    : DBNull.Value;
+                command.Parameters.AddWithValue("css", drop_area.css);
 
                 await command.ExecuteNonQueryAsync();
 
@@ -76,7 +109,8 @@ namespace App.Services
             }
             catch (Exception e)
             {
-                return new ServiceResult("error", e);
+                Console.WriteLine(e.Message);
+                return new ServiceResult("error", e.Message);
             }
         }
         public async Task<ServiceResult> DeleteBlock(string recurrence_id)

@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>sprite_game</RootNamespace>
+    <UserSecretsId>1ab137de-7e16-4076-97a7-573a468c3ff9</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

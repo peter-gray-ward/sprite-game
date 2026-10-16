@@ -368,6 +368,9 @@ a.ui-button:active,
 
 .block {
 	position: absolute;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 .block:hover, .block.hovered {
@@ -504,6 +507,9 @@ a.ui-button:active,
 #block-image {
 	width: 100%;
 	height: 100%;
+	background-size: contain;
+    background-repeat: no-repeat;
+    background-position: 50% 50%;
 }
 
 #block-image-edit-area .object-area-preview {

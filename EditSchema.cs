@@ -28,8 +28,9 @@ namespace App
 					INSERT INTO level
 					(id, name, player_name, boundary_tile_ids, exit_tile_map)
 					VALUES
-					('5f86d38b-6f9d-4c03-867f-3c03a50bb797', 'Level One', 'peter', '', '');
+					('d2358090-8f14-4c5a-8c9e-fe59d58a4e75', 'Level One', 'peter', '', '');
 
+					DROP TABLE IF EXISTS Block;
 					CREATE TABLE IF NOT EXISTS Block (
 						id UUID PRIMARY KEY,
 						recurrence_id UUID,
@@ -52,10 +53,11 @@ namespace App
 						parent_id UUID
 					);
 
+					DROP TABLE IF EXISTS Player;
 					CREATE TABLE IF NOT EXISTS Player (
 						name TEXT PRIMARY KEY NOT NULL,
 						password TEXT NOT NULL,
-						level INT NOT NULL,
+						level_id UUID NOT NULL,
 						position_x FLOAT,
 						position_y FLOAT,
 						direction TEXT NOT NULL,
@@ -78,6 +80,14 @@ namespace App
 						id UUID PRIMARY KEY,
 						user_name TEXT NOT NULL,
 						item_id UUID NOT NULL
+					);
+
+					DROP TABLE IF EXISTS public.images;
+					CREATE TABLE public.images (
+					    id UUID PRIMARY KEY,
+					    tag TEXT,
+					    src BYTEA NOT NULL,
+					    user_name TEXT
 					);
 				", connection);
 				await command.ExecuteNonQueryAsync();

@@ -21,8 +21,8 @@ namespace App.Services
 				var hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
 
 				var command = new NpgsqlCommand(@"
-					INSERT INTO Player (name, position_x, position_y, password)
-					VALUES (@name, 0, 0, @password)
+					INSERT INTO Player (name, position_x, position_y, password, level_id, direction, z_index, top_left_tile, level_grid)
+					VALUES (@name, 0, 0, @password, 'd2358090-8f14-4c5a-8c9e-fe59d58a4e75', '', 0, '', '')
 				", connection);
 
 				// Add parameters to prevent SQL injection
@@ -35,6 +35,7 @@ namespace App.Services
 			}
 			catch (Exception ex)
 			{
+				Console.WriteLine("Error registering player " + ex.Message);
 				return new ServiceResult("error", ex);
 			}
 		}
@@ -44,8 +45,14 @@ namespace App.Services
 			Player player = new Player();
 			try
 			{
-				using var connection = db.GetConnection();
-				await connection.OpenAsync();
+				Console.WriteLine("Getting connection...");
+		        using var connection = db.GetConnection();
+
+		        Console.WriteLine("Opening connection...");
+		        await connection.OpenAsync();
+
+		        Console.WriteLine("Connection opened!");
+
 
 				var command = new NpgsqlCommand(@"
 					SELECT
@@ -69,6 +76,11 @@ namespace App.Services
 				{
 					var storedPassword = reader.GetString(4);
 
+					Console.WriteLine("storedPassword " + storedPassword);
+
+					Console.WriteLine("Verification " + BCrypt.Net.BCrypt.Verify(password, storedPassword));
+
+
 					if (BCrypt.Net.BCrypt.Verify(password, storedPassword))
 					{
 						Console.WriteLine("Passwords match!");
@@ -88,10 +100,13 @@ namespace App.Services
 					}
 				}
 
+				Console.WriteLine("Login failed");
+
 				return new ServiceResult("failure", player);
 			}
 			catch (Exception ex)
 			{
+				Console.WriteLine(ex.Message);
 				return new ServiceResult("error", ex);
 			}
 		}

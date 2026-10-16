@@ -13,30 +13,34 @@ namespace App.Services
     
         public async Task<ServiceResult> GetLevel(string userName, string levelId)
         {
-            using var connection = db.GetConnection();
-            await connection.OpenAsync();
-            var command = new NpgsqlCommand(@$"
-                SELECT l.id, l.boundary_tile_ids, l.name
-                FROM level l
-                INNER JOIN player p on (l.player_name = p.name)
-                WHERE p.name = @user_name
-                AND l.id = @level_id
-            ", connection);
-            command.Parameters.AddWithValue("user_name", userName);
-            command.Parameters.AddWithValue("level_id", Guid.Parse(levelId));
+            try {
+                using var connection = db.GetConnection();
+                await connection.OpenAsync();
+                var command = new NpgsqlCommand(@$"
+                    SELECT l.id, l.boundary_tile_ids, l.name
+                    FROM level l
+                    INNER JOIN player p on (l.player_name = p.name)
+                    WHERE p.name = @user_name
+                    AND l.id = @level_id
+                ", connection);
+                command.Parameters.AddWithValue("user_name", userName);
+                command.Parameters.AddWithValue("level_id", Guid.Parse(levelId));
 
-            var reader = await command.ExecuteReaderAsync();
+                var reader = await command.ExecuteReaderAsync();
 
-            Level level = new();
+                Level level = new();
 
-            if (await reader.ReadAsync())
-            {
-                level.name = reader["name"]?.ToString() ?? string.Empty;
-                level.id = Guid.Parse(reader["id"]?.ToString() ?? Guid.Empty.ToString());
-                level.boundary_tile_ids = reader["boundary_tile_ids"]?.ToString() ?? string.Empty;
+                if (await reader.ReadAsync())
+                {
+                    level.name = reader["name"]?.ToString() ?? string.Empty;
+                    level.id = Guid.Parse(reader["id"]?.ToString() ?? Guid.Empty.ToString());
+                    level.boundary_tile_ids = reader["boundary_tile_ids"]?.ToString() ?? string.Empty;
+                }
+
+                return new ServiceResult("success", level);
+            } catch (Exception ex) {
+                return new ServiceResult("ex " + ex.Message);
             }
-
-            return new ServiceResult("success", level);
         }
         public async Task<ServiceResult> EditLevel(string userName, Dictionary<string, JsonElement> level)
         {
@@ -89,7 +93,7 @@ namespace App.Services
             }
             catch (Exception e)
             {
-                return new ServiceResult("error", e);
+                return new ServiceResult("error: " + e.Message, e);
             }
         }
     }

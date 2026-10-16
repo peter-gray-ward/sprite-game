@@ -423,6 +423,7 @@ function GetBlocks() {
       console.error(err)
     }
     if (res.status == 'success') {
+
       control.needsUpdate = false
       var blocks = res.data.map(block => {
         block.object_area = JSON.parse(block.object_area)
@@ -601,12 +602,14 @@ function LoadLevel() {
         player.level = res.data;
         try {
           player.level.boundary_tile_ids = JSON.parse(player.level.boundary_tile_ids)
+          for (var id of player.level.boundary_tile_ids) {
+            control.boundary_tile_ids.add(id)
+          }
+          $('#level-name').val(res.data.name);
+          $('#boundary-tile-ids').html(JSON.stringify(Array.from(control.boundary_tile_ids)));
         } catch (NoTilesYet) {}
-        for (var id of player.level.boundary_tile_ids) {
-          control.boundary_tile_ids.add(id)
-        }
-        $('#level-name').val(res.data.name);
-        $('#boundary-tile-ids').html(JSON.stringify(Array.from(control.boundary_tile_ids)));
+        
+        
         resolve()
       }
     });
@@ -681,7 +684,7 @@ function RenderGandalf() {
   const imageHeight = 1344; // Total height of the sprite sheet in pixels
   const scaledImageHeight = 189; // Total height of the sprite sheet in vh
   const scalingFactor = 189 / 1344;
-  const rotation = view.sprite.rotation[spriteDirection];
+  const rotation = view.sprite.rotation[spriteDirection || "up"];
   const sectionWidth = view.sprite.section * 832;
   const offset = view.sprite.offset * 832;
   const backgroundX = `calc(-1 * (${rotation.index} * 64) * ${scalingFactor}vh)`;
@@ -700,7 +703,7 @@ function RenderGandalf() {
 
   switch (view.sprite.direction) {
   default:
-    css.zIndex = Math.floor(css.top + (sprite$viewHeight * 0.01 * window.innerHeight))
+    css.zIndex = Math.floor(css.top + (sprite$viewHeight * 0.001 * window.innerHeight))
     break;
   }
 
@@ -790,6 +793,7 @@ function RenderGandalf() {
 
   $("#object-areas-count").html(view.object_areas.length)
 
+  cancelAnimationFrame(view.sprite.frame)
   window.requestAnimationFrame(RenderGandalf);
 }
 
@@ -1196,9 +1200,12 @@ function isOverlappedByGround(element) {
 function AddObjectAreas() {
   view.object_areas = []
   $('.object-area').remove();
-  for (var id of player.level.boundary_tile_ids) {
-    AddObjectAreaFromBoundaryId(id)
+  if (player.level && player.level.boundary_tile_ids) {
+    for (var id of player.level.boundary_tile_ids) {
+      AddObjectAreaFromBoundaryId(id)
+    }
   }
+
   for (var b of Object.values(view.blocks)) {
     var block = b.block
     var object_area_index = 0

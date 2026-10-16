@@ -15,12 +15,12 @@ namespace App.Models
         public int dir_x { get; set; } = 1;
         public int dimension { get; set; } = 1;
         public Guid recurrence_id { get; set; }
-        public string object_area { get; set; } = String.Empty;
+        public string object_area { get; set; } = "[]";
         public int translate_object_area { get; set; } = 0;
         public int random_rotation { get; set; } = 0;
         public int ground { get; set; } = 0;
         public Guid? parent_id { get; set; } = null;
-        public string css { get; set; } = String.Empty;
+        public string css { get; set; } = "{\"transform\":\"scale(1)\"}";
 
     }
 }
