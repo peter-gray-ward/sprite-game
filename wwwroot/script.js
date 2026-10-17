@@ -4,7 +4,7 @@ var events = {
   '#image-browse-results:scroll': ScrollPixabayResults,
   '.pixabay-result:dblclick': SaveImage,
   '#image-browse-select:change': SelectTag,
-  '.block:click': SelectBlock,
+  '.tile:click': SelectBlock,
   '.object-area-preview:mousedown': ObjectAreaPreviewMousedown,
   '.object-area-preview:mousemove': ObjectAreaPreviewMousemove,
   '.object-area-preview:mouseup': ObjectAreaPreviewMouseup,
@@ -12,7 +12,7 @@ var events = {
   '#apply-block-edits:click': ApplyBlockEdits,
   '#view-object-areas:change': ChangeViewObjectAreas,
   '#delete-block:click': DeleteBlock,
-  '.tile:click': DeselectBlock,
+  // '.tile:click': DeselectBlock,
   '#manage-blocks .tbody .tr:mouseover': MouseOverBlockRow,
   '#manage-blocks .tbody .tr:mouseleave': MouseLeaveBlockRow,
   '#manage-blocks .tbody .tr:click': SelectManageBlockRow,
@@ -29,52 +29,15 @@ var events = {
   '#level-name:keyup': SerializeAndSaveLevelMetadata
 }
 
-Array.prototype.contains = function(str) {
-  for (var i = 0; i < this.length; i++) {
-    if (this[i] == str) {
-      return true
-    }
-  }
-  return false
-}
-
-Array.prototype.remove = function(obj) {
-  for (var i = 0; i < this.length; i++) {
-    if (this[i] == obj) {
-      this.splice(i, 1);
-      return
-    }
-  }
-}
-
-function include(obj, inclusions) {
-  var result = {}
-  for (var key in obj) {
-    if (inclusions.contains(key)) {
-      result[key] = obj[key]
-    }
-  }
-  return result
-}
-
-function omit(obj, omissions) {
-  var result = {}
-  for (var key in obj) {
-    if (!omissions.contains(key)) {
-      result[key] = obj[key]
-    }
-  }
-  return result
-}
-
 var view = {
   dimension: 20,
   blocks: {},
-  $height: undefined,
+  $height: $('#view').height(),
   drop_area: {},
   view_block_areas: false,
   object_areas: [],
   wall_bump_sound: new Audio("/wall-bump-sound.mp3"),
+  activity: {},
   sprite: {
     name: 'Gandalf',
     el: undefined,
@@ -117,7 +80,7 @@ var view = {
     },
     section: -64 / -832,
     offset: -2 / -832,
-    direction: undefined,
+    direction: getCookieValue("direction") || 'up',
     z_index: 0
   }
 }
@@ -135,6 +98,44 @@ var control = {
 }
 
 var player = {}
+
+Array.prototype.contains = function(str) {
+  for (var i = 0; i < this.length; i++) {
+    if (this[i] == str) {
+      return true
+    }
+  }
+  return false
+}
+
+Array.prototype.remove = function(obj) {
+  for (var i = 0; i < this.length; i++) {
+    if (this[i] == obj) {
+      this.splice(i, 1);
+      return
+    }
+  }
+}
+
+function include(obj, inclusions) {
+  var result = {}
+  for (var key in obj) {
+    if (inclusions.contains(key)) {
+      result[key] = obj[key]
+    }
+  }
+  return result
+}
+
+function omit(obj, omissions) {
+  var result = {}
+  for (var key in obj) {
+    if (!omissions.contains(key)) {
+      result[key] = obj[key]
+    }
+  }
+  return result
+}
 
 function getCookieValue(cookieName) {
   const cookies = document.cookie.split(';'); // Split all cookies into an array
@@ -551,79 +552,104 @@ function RenderBlocks(blocks) {
   AddEvents()
 }
 
-function SetZIndexes() {
-  for (var id in view.blocks) {
-    if (view.blocks[id].block.ground) {
-      for (var div of view.blocks[id].divs) {
-        $(div).css('z-index', 1)
+
+function FinalizeBlocks() {
+
+  // STEP 1: Calculate the z-index of every block.
+  for (const id in view.blocks) {
+
+    // Retrieve the block's data and rendered HTML elements.
+    const { block, divs } = view.blocks[id];
+
+    // Ground blocks (floor textures, etc.) always stay behind everything.
+    if (block.ground) {
+      for (const div of divs) {
+        $(div).css('z-index', 1);
       }
-    } else {
-      for (var div of view.blocks[id].divs) {
-        if (!view.blocks[id].block.parent_id || view.blocks[id].block.parent_id.length !== 36) {
-          var bottom = view.blocks[id].divs.length == 1 ? Infinity : Math.floor(+$(div).css('top').split('px')[0] + $(div).height())
-          if (bottom == Infinity) {
-            for (var oa of view.object_areas) {
-              if (oa.block_id == id) {
-                var oaBottom = oa.top + oa.height
-                if (oaBottom < bottom) {
-                  bottom = Math.floor(oaBottom);
-                }
-              }
-            }
-            var divBottom = Math.floor(+$(div).css('top').split('px')[0] + $(div).height());
-            if (divBottom < bottom) {
-              bottom = divBottom
-            } 
-          }
-          $(div).css("z-index", bottom);
-          $(div).html(bottom + ' [' + view.blocks[id].divs.length + ']')
-          for (var id2 in view.blocks) {
-            if (view.blocks[id2].block.parent_id == view.blocks[id].block.id) {
-              for (var div2 of view.blocks[id2].divs) {
-                $(div2).css('z-index', bottom + 1)
-                $(div2).html(bottom + 1)
-              }
-            }
-          }
-        }
+      continue;
+    }
+
+    // A block can have multiple rendered instances because of repeat_x/repeat_y.
+    // Calculate the depth of each rendered instance separately.
+    divs.forEach((div, index) => {
+
+      // Find the object areas belonging to this specific block instance.
+      // CreateAndAddBlockArea() assigns each instance an "__index" suffix.
+      const areas = view.object_areas.filter(area =>
+        area.block_id === id &&
+        area.id.endsWith(`__${index}`)
+      );
+
+      // Determine the bottom edge of the actual rendered block.
+      // This is our fallback if the block has no object areas.
+      const divBottom = div.offsetTop + div.offsetHeight;
+
+      // If object areas exist, use the LOWEST (frontmost) edge
+      // of the object's physical footprint.
+      //
+      // Because Y increases downward:
+      // Math.max() gives us the frontmost edge.
+      //
+      // Otherwise, use the bottom of the rendered block.
+      const depthY = areas.length
+        ? Math.max(...areas.map(area => area.top + area.height))
+        : divBottom;
+
+      // Assign depth as the z-index.
+      // Objects farther down the screen appear in front.
+      $(div).css('z-index', Math.floor(depthY));
+
+      if (div.children.length == 0) {
+        div.innerHTML = `<div style="opacity:0.5;font-size:.25rem;background:white;display:flex;align-items:center;justify-content:center">
+          depth y: ${depthY}
+          z: ${Math.floor(depthY)}
+      </div>`
       }
+
+    });
+  }
+
+
+  // STEP 2: Position child blocks immediately above their parents.
+  //
+  // For example, a cushion belonging to a couch should render
+  // above the couch rather than being independently depth-sorted.
+  for (const id in view.blocks) {
+
+    const { block, divs } = view.blocks[id];
+
+    // Ground blocks have already been handled.
+    if (block.ground) continue;
+
+    // Skip blocks that have no parent.
+    if (!block.parent_id) continue;
+
+    // Look up the parent block.
+    const parent = view.blocks[block.parent_id];
+
+    // Ignore missing parents.
+    if (!parent || !parent.divs.length) continue;
+
+    // Find the highest z-index among the parent's rendered instances.
+    const parentDepth = Math.max(
+      ...parent.divs.map(div => Number($(div).css('z-index')))
+    );
+
+    // Place the child just above its parent.
+    for (const div of divs) {
+      $(div).css('z-index', parentDepth + 1);
     }
   }
 }
 
-function LoadLevel() {
-  return new Promise(resolve => {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/level/" + player.level_id);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.addEventListener("load", function() {
-      var res = JSON.parse(this.response)
-      if (res.status == 'success') {
-        player.level = res.data;
-        try {
-          player.level.boundary_tile_ids = JSON.parse(player.level.boundary_tile_ids)
-          for (var id of player.level.boundary_tile_ids) {
-            control.boundary_tile_ids.add(id)
-          }
-          $('#level-name').val(res.data.name);
-          $('#boundary-tile-ids').html(JSON.stringify(Array.from(control.boundary_tile_ids)));
-        } catch (NoTilesYet) {}
-        
-        
-        resolve()
-      }
-    });
-    xhr.send();
-  })
-}
 
 function LoadTiles(level_grid) {
   var view = document.getElementById('view')
   for (var i = 0; i < 400; i++) {
     var tile = document.createElement('div')
     tile.id = `tile_${level_grid}_${ Math.floor(i / 20) }-${ i % 20 }`
-    tile.innerHTML = `${ Math.floor(i / 20) }-${ i % 20 }`
     tile.classList.add('tile')
+    tile.classList.add('dev')
     MakeDroppable(tile)
     view.appendChild(tile)
   }
@@ -655,143 +681,165 @@ function LoadSprite() {
   view.sprite.el = document.createElement("div")
   view.sprite.el.id = "gandalf"
   view.sprite.el.classList.add('sprite')
-  document.querySelector('main').appendChild(view.sprite.el)
+  document.querySelector('#view').appendChild(view.sprite.el)
   RenderGandalf()
 }
 
+var start = true;
 var i = 0;
 function RenderGandalf() {
-  let isMoving = false;
-  const originalPosition = Object.assign({}, view.sprite.position)
-  for (var key of view.sprite.keys) {
-    if (view.sprite.key_values[key]) {
-      isMoving = true;
-      for (var pos in view.sprite.key_values[key]) {
-        view.sprite.position[pos] += view.sprite.key_values[key][pos];
+  if (Object.keys(view.activity).length || start) {
+    start = false;
+    let isMoving = false;
+    const originalPosition = Object.assign({}, view.sprite.position)
+    for (var key of view.sprite.keys) {
+      if (view.sprite.key_values[key]) {
+        isMoving = true;
+        for (var pos in view.sprite.key_values[key]) {
+          view.sprite.position[pos] += view.sprite.key_values[key][pos];
+        }
       }
     }
-  }
 
-  if (isMoving && view.sprite.direction) {
-    view.sprite.rotation[view.sprite.direction].index++;
-    if (view.sprite.rotation[view.sprite.direction].index > 8) {
-      view.sprite.rotation[view.sprite.direction].index = 0;
+    if (isMoving && view.sprite.direction) {
+      view.sprite.rotation[view.sprite.direction].index++;
+      if (view.sprite.rotation[view.sprite.direction].index > 8) {
+        view.sprite.rotation[view.sprite.direction].index = 0;
+      }
     }
-  }
 
-  const spriteDirection = view.sprite.direction;
-  const spriteSize = 64; // Size of each sprite in pixels
-  const imageHeight = 1344; // Total height of the sprite sheet in pixels
-  const scaledImageHeight = 189; // Total height of the sprite sheet in vh
-  const scalingFactor = 189 / 1344;
-  const rotation = view.sprite.rotation[spriteDirection || "up"];
-  const sectionWidth = view.sprite.section * 832;
-  const offset = view.sprite.offset * 832;
-  const backgroundX = `calc(-1 * (${rotation.index} * 64) * ${scalingFactor}vh)`;
-  const backgroundY = `calc(-1 * ${rotation.top * 1344} * ${scalingFactor}vh)`;
+    const spriteDirection = view.sprite.direction;
+    const spriteSize = 64; // Size of each sprite in pixels
+    const imageHeight = 1344; // Total height of the sprite sheet in pixels
+    const scaledImageHeight = 189; // Total height of the sprite sheet in vh
+    const scalingFactor = 189 / 1344;
+    const rotation = view.sprite.rotation[spriteDirection || "up"];
+    const sectionWidth = view.sprite.section * 832;
+    const offset = view.sprite.offset * 832;
+    const backgroundX = `calc(-1 * (${rotation.index} * 64) * ${scalingFactor}vh)`;
+    const backgroundY = `calc(-1 * ${rotation.top * 1344} * ${scalingFactor}vh)`;
 
-  var sprite$viewHeight = spriteSize * scalingFactor;
-  var css = {
-    background: `url(/Gandalf.png) no-repeat`,
-    backgroundSize: `auto ${scaledImageHeight}vh`,
-    backgroundPosition: i % 8 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
-    width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
-    height: `${sprite$viewHeight}vh`,
-    top: view.sprite.position.top * view.$height,
-    left: view.sprite.position.left * view.$height
-  };
+    var sprite$viewHeight = spriteSize * scalingFactor;
+    var css = {
+      background: `url(/Gandalf.png) no-repeat`,
+      backgroundSize: `auto ${scaledImageHeight}vh`,
+      backgroundPosition: i % 8 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
+      width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
+      height: `${sprite$viewHeight}vh`,
+      top: view.sprite.position.top * view.$height,
+      left: view.sprite.position.left * view.$height
+    };
 
-  switch (view.sprite.direction) {
-  default:
-    css.zIndex = Math.floor(css.top + (sprite$viewHeight * 0.001 * window.innerHeight))
-    break;
-  }
+   
 
-  if (i++ == 100) {
-    i = 0
-  }
+    if (i++ == 100) {
+      i = 0
+    }
 
-  let spriteTop = view.sprite.position.top * view.$height;
-  let spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height();
-  let spriteRight = view.sprite.position.left * view.$height + $("#gandalf").width();
-  let spriteLeft = view.sprite.position.left * view.$height;
-  const gandalf$height = $("#gandalf").height();
-  const gandalf$width = $("#gandalf").width()
+    let spriteTop = view.sprite.position.top * view.$height;
+    let spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height();
+    let spriteRight = view.sprite.position.left * view.$height + $("#gandalf").width();
+    let spriteLeft = view.sprite.position.left * view.$height;
+    const gandalf$height = $("#gandalf").height();
+    const gandalf$width = $("#gandalf").width()
 
 
-  spriteTop += gandalf$height * .75
-  spriteBottom -= gandalf$height * .15
-  spriteLeft += gandalf$width * 0.333
-  spriteRight -= gandalf$width * 0.333
+    spriteTop += gandalf$height * .75
+    spriteBottom -= gandalf$height * .15
+    spriteLeft += gandalf$width * 0.333
+    spriteRight -= gandalf$width * 0.333
 
-  var bumps = false
-  for (var object_area of view.object_areas) {
+    var bumps = false
+    for (var object_area of view.object_areas) {
+      switch (view.sprite.direction) {
+      case "up":
+        if (spriteTop <= object_area.top + object_area.height + 1
+          && spriteBottom > object_area.top + object_area.height
+          && spriteRight >= object_area.left 
+          && spriteLeft <= object_area.left + object_area.width) {
+          bumps = true
+          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+        } else {
+          $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+        }
+        break;
+      case "right":
+        if (spriteRight >= object_area.left - 1
+          && spriteLeft < object_area.left
+          && spriteTop <= object_area.top + object_area.height
+          && spriteBottom >= object_area.top) {
+           bumps = true
+          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+        } else {
+          $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+        }
+        break;
+      case "down":
+        if (spriteBottom >= object_area.top - 1
+          && spriteTop < object_area.top
+          && spriteRight >= object_area.left 
+          && spriteLeft <= object_area.left + object_area.width) {
+          bumps = true
+          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.5)')
+        } else {
+          // $('#' + object_area.id).css('background', 'rgba(255,0,0,0.5)')
+        }
+        break;
+      case "left":
+        if (spriteLeft <= object_area.left + object_area.width + 1
+          && spriteRight > object_area.left + object_area.width
+          && spriteTop <= object_area.top + object_area.height
+          && spriteBottom >= object_area.top) {
+          bumps = true
+          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+        } else {
+          $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+        }
+        break;
+      }
+    }
+
+    if (bumps) {
+      if (isMoving) {
+        view.wall_bump_sound.play()
+      }
+      delete css.top
+      delete css.left
+      view.sprite.position = originalPosition
+    } else {
+      css.top += 'px'
+      css.left += 'px'
+    }
+
     switch (view.sprite.direction) {
-    case "up":
-      if (spriteTop <= object_area.top + object_area.height + 1
-        && spriteBottom > object_area.top + object_area.height
-        && spriteRight >= object_area.left 
-        && spriteLeft <= object_area.left + object_area.width) {
-        bumps = true
-        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
-      } else {
-        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
-      }
-      break;
-    case "right":
-      if (spriteRight >= object_area.left - 1
-        && spriteLeft < object_area.left
-        && spriteTop <= object_area.top + object_area.height
-        && spriteBottom >= object_area.top) {
-         bumps = true
-        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
-      } else {
-        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
-      }
-      break;
-    case "down":
-      if (spriteBottom >= object_area.top - 1
-        && spriteTop < object_area.top
-        && spriteRight >= object_area.left 
-        && spriteLeft <= object_area.left + object_area.width) {
-        bumps = true
-        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.5)')
-      } else {
-        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.5)')
-      }
-      break;
-    case "left":
-      if (spriteLeft <= object_area.left + object_area.width + 1
-        && spriteRight > object_area.left + object_area.width
-        && spriteTop <= object_area.top + object_area.height
-        && spriteBottom >= object_area.top) {
-        bumps = true
-        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
-      } else {
-        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
-      }
+    default:
+      css.zIndex = Math.floor(spriteBottom)
       break;
     }
-  }
 
-  if (bumps) {
-    if (isMoving) {
-      view.wall_bump_sound.play()
+    $(view.sprite.el).css(css);
+    $(view.sprite.el).html(css.zIndex)
+    $(view.sprite.el)[0].style.zIndex = css.zIndex
+    console.log(css.zIndex, spriteBottom, $(view.sprite.el)[0].style.zIndex)
+
+
+    var gandalfMetadata = document.getElementById('gandalf-metadata')
+    if (gandalfMetadata) {
+      gandalfMetadata.remove()
     }
-    delete css.top
-    delete css.left
-    view.sprite.position = originalPosition
-  } else {
-    css.top += 'px'
-    css.left += 'px'
+    gandalfMetadata = document.createElement('pre')
+    gandalfMetadata.id = 'gandalf-metadata'
+    gandalfMetadata.style.top = spriteBottom + 'px'
+    gandalfMetadata.style.left = spriteLeft + 'px'
+    gandalfMetadata.innerHTML = `
+      ${JSON.stringify(css, null, 2)}
+
+    `
+    document.getElementById('view').appendChild(gandalfMetadata)
+
+
+    $("#object-areas-count").html(view.object_areas.length)
   }
-
-  
-
-  $(view.sprite.el).css(css);
-  $(view.sprite.el).html(css.zIndex)
-
-  $("#object-areas-count").html(view.object_areas.length)
 
   cancelAnimationFrame(view.sprite.frame)
   window.requestAnimationFrame(RenderGandalf);
@@ -855,6 +903,19 @@ function AdjustEditBlockImage() {
 }
 
 function SelectBlock(event) {
+  console.log('SelectBlock')
+  var id = event.srcElement.id.split("__")[1].replace('-', '_');
+  let selectedBlocks = [];
+
+
+  for (let child of document.getElementById('view').children) {
+    if (child.id.endsWith("::" + id)) {
+      selectedBlocks.push(child);
+    }
+  }
+
+  if (!selectedBlocks.length) return;
+
 
   if (control.selecting_parent_id) {
     $("#parent-id").html(event.srcElement.dataset.id)
@@ -868,12 +929,19 @@ function SelectBlock(event) {
 
   $('.block').removeClass('editing')
 
-  control.block_id = event.srcElement.dataset.id
+
+
+  control.block_id = /*just 0 for now*/selectedBlocks[0].id.split("::")[0];
+
+
+
   view.blocks[control.block_id].divs.forEach(div => {
     $(div).addClass('editing')
   });
 
   const block = view.blocks[control.block_id].block;
+
+
   $("#block-id").html(block.id)
   $("#block-type-edit .y-start").val(block.start_y)
   $("#block-type-edit .x-start").val(block.start_x)
@@ -889,13 +957,15 @@ function SelectBlock(event) {
 
   $('a[href="#edit-block"]').click()
 
+
   var css = Object.assign({}, view.blocks[control.block_id].block.css);
 
   $('#block-css').val(JSON.stringify(css, null, 1))
 
   css.backgroundImage = `url(/image/${view.blocks[control.block_id].block.image_id})`;
-  css.transform = css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
+  css.transform = ''//css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
 
+  console.log('css for editor', css)
   $('#block-image').css(css)
   $('#block-type-edit .drop-dimensions input').val(view.blocks[control.block_id].block.dimension)
 
@@ -961,18 +1031,37 @@ function SelectManageBlockRow(event) {
 }
 
 function ObjectAreaPreviewMousedown(event) {
+  view.activity.click = true;
   event.preventDefault()
+  var selected = $(event.target).hasClass("selected");
+  control.object_area_preview.select = !selected;
   control.object_area_preview.active = true
-  $(event.target).toggleClass('selected')
+
+  if (control.object_area_preview.select) {
+    $(event.target).addClass('selected')
+  } else {
+    $(event.target).removeClass('selected')
+  }
+  
 }
 
 function ObjectAreaPreviewMousemove(event) {
+  view.activity.mousemove = true;
+  setTimeout(() => {
+    view.activity.mousemove = false;
+  }, 700);
   if (control.object_area_preview.active) {
-    $(event.target).addClass('selected')
+    if (control.object_area_preview.select) {
+      $(event.target).addClass('selected')
+    } else {
+      $(event.target).removeClass('selected')
+    }
   }
 }
 
 function ObjectAreaPreviewMouseup(event) {
+  delete view.activity.click;
+  control.object_area_preview.active = false
   control.object_area_preview.object_area = []
   setTimeout(function() {
     $(event.target.parentElement).find('.selected').each(function(_, elem) {
@@ -1227,7 +1316,7 @@ function AddObjectAreas() {
       }
     }
   }
-  SetZIndexes()
+  FinalizeBlocks()
 }
 
 function GetBlockDimensions(block) {
@@ -1263,7 +1352,7 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
       transform[transformation] = transform[transformation]
       break;
     case '%':
-      transform[transformation] = transform[transformation] * 0.01 * scaledWidth
+      transform[transformation] = transform[transformation] * 0.1 * scaledWidth
       break;
     }
   }
@@ -1276,13 +1365,40 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
 }
 
 function CreateAndAddBlockArea(block, top, left, width, height, index) {
-  var _transform = block.css.transform
+  var _transform = block.css.transform ?? 1;
   var transform = {
     scale: 1,
+    scaleX: 1,
+    scaleY: 1,
     translateX: 0,
-    translateY: 0
+    translateY: 0,
+    rotate: 0,
+    skewX: 0,
+    skewY: 0
   };
 
+  if (typeof _transform === "number" || !isNaN(Number(_transform))) {
+    transform.scale = Number(_transform);
+  } else {
+    const regex = /([a-zA-Z]+)\(([^)]*)\)/g;
+
+    for (const [, name, value] of _transform.matchAll(regex)) {
+      const values = value.split(/[,\s]+/).map(parseFloat);
+
+      if (name === "translate") {
+        transform.translateX = values[0] ?? 0;
+        transform.translateY = values[1] ?? 0;
+      } else if (name === "scale") {
+        transform.scale = values[0] ?? 1;
+        if (values.length > 1) {
+          transform.scaleX = values[0];
+          transform.scaleY = values[1];
+        }
+      } else if (name in transform) {
+        transform[name] = values[0];
+      }
+    }
+  }
   var regex = /([a-zA-Z]+)\((-?\d+(\.\d+)?(px|deg|%)?)\)/g;
   var match;
   var unitRegex = /[a-zA-Z%]+/g;
@@ -1386,6 +1502,7 @@ function AddObjectAreaFromBoundaryId(boundary_tile_id) {
 }
 
 function SelectBoundariesMousedown(event) {
+  view.activity.click = true;
   if (!event.target.classList.contains("tile")) return
   
   var id = event.target.id;
@@ -1408,7 +1525,10 @@ function SelectBoundariesMousedown(event) {
 }
 
 function SelectBoundariesMousemove(event) {
-
+  view.activity.mousemove = true;
+  setTimeout(() => {
+    view.activity.mousemove = false;
+  }, 700);
   if (!event.target.classList.contains("tile") || control.removing_boundary_tile) return
   if (control.select_boundaries_mousedown) {
     var id = event.target.id;
@@ -1428,6 +1548,7 @@ function SelectBoundariesMousemove(event) {
 }
 
 function KeyDown(event) {
+  view.activity[event.key] = true;
   const eventKey = event.key.toLowerCase();
 
   if (view.sprite.key_values[eventKey]) {
@@ -1441,6 +1562,7 @@ function KeyDown(event) {
 }
 
 function KeyUp(event) {
+  delete view.activity[event.key];
   const eventKey = event.key.toLowerCase();
 
   if (eventKey === 'shift') {
@@ -1461,6 +1583,7 @@ function KeyUp(event) {
 }
 
 function MouseUp(event) {
+  delete view.activity.click;
   if (control.select_boundaries_mousedown || control.removing_boundary_tile) {
     control.select_boundaries_mousedown = false;
     var xhr = new XMLHttpRequest();
@@ -1479,8 +1602,8 @@ function MouseUp(event) {
   control.removing_boundary_tile = false
 }
 
-$( function() {
-  console.log('starting...')
+function LoadPlayerFromCache() {
+  // load player from cache
   player = {
     name: getCookieValue("name"),
     level_id: getCookieValue("level_id"),
@@ -1491,7 +1614,6 @@ $( function() {
     top_left_tile: getCookieValue("top_left_tile"),
     level_grid: getCookieValue("level_grid")
   }
-
   window.view.sprite.position.left = +player.position_x
   window.view.sprite.position.top = +player.position_y
   window.view.sprite.z_index = +player.z_index
@@ -1499,39 +1621,77 @@ $( function() {
   document.querySelector("#log p").innerHTML = `
     <span>${player.level}</span>
   `
-    
+}
 
-  LoadLevel().then(() => {
-    LoadTiles(player.level_grid)
-
-    var biea = document.getElementById('block-image-edit-area')
-    for (var i = 0; i < 49; i++) {
-      var object_area_preview = document.createElement('div')
-      object_area_preview.classList.add('object-area-preview')
-      object_area_preview.id = `object-area-${Math.floor(i / 7)}_${i % 7}`
-      biea.appendChild(object_area_preview)
+function LoadPlayerPostInitalFromServer(res) {
+  player.level = res.data;
+      
+  try {
+    player.level.boundary_tile_ids = JSON.parse(player.level.boundary_tile_ids)
+    for (var id of player.level.boundary_tile_ids) {
+      control.boundary_tile_ids.add(id)
     }
+    $('#level-name').val(res.data.name);
+    $('#boundary-tile-ids').html(JSON.stringify(Array.from(control.boundary_tile_ids)));
+  } catch (NoTilesYet) {}
+}
 
-    LoadView()
-    LoadImageIds()
+function LoadLevel(res) {
+  LoadPlayerPostInitalFromServer(res)
+  LoadTiles(player.level_grid)
 
-    for (var key in events) {
-      var split_key = key.split(':')
-      document.querySelectorAll(split_key[0]).forEach(element => {
-        element.addEventListener(split_key[1], events[key])
-      })
-    }
+  var biea = document.getElementById('block-image-edit-area')
+  for (var i = 0; i < 49; i++) {
+    var object_area_preview = document.createElement('div')
+    object_area_preview.classList.add('object-area-preview')
+    object_area_preview.id = `object-area-${Math.floor(i / 7)}_${i % 7}`
+    biea.appendChild(object_area_preview)
+  }
 
-    $('#tabs').tabs()
+  LoadView()
+  LoadImageIds()
 
-
-    window.addEventListener('resize', function() {
-      LoadView();
+  for (var key in events) {
+    var split_key = key.split(':')
+    document.querySelectorAll(split_key[0]).forEach(element => {
+      element.addEventListener(split_key[1], events[key])
     })
+  }
+
+  $('#tabs').tabs()
 
 
-    RenderGandalf(window.view.sprite.el)
+  window.addEventListener('resize', function() {
+    LoadView();
   })
+
+
+  RenderGandalf(window.view.sprite.el)
+}
+
+function LoadData() {
+  // player
+  LoadPlayerFromCache();
+
+  // level
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/level/" + player.level_id);
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.addEventListener("load", function() {
+    var res = JSON.parse(this.response)
+
+    if (res.status == 'success') {
+      LoadLevel(res);
+    }
+  });
+  xhr.send();
+}
+
+$( function() {
+  console.log('starting...')
+
+  
+  LoadData();
 
 } )
 

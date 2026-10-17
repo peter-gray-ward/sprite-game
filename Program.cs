@@ -7,7 +7,7 @@ using App.Services;
 using App.Middleware;
 using App.Controllers;
 
-bool editSchema = true;
+bool editSchema = false;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDistributedMemoryCache(); // Use in-memory cache for session storage

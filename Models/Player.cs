@@ -11,7 +11,7 @@ namespace App.Models
 		public Guid level_id { get; set; }
 		public double position_x { get; set; } = 0.0;
 		public double position_y { get; set; } = 0.0;
-		public string direction { get; set; } = "";
+		public string direction { get; set; } = "up";
 		public int z_index { get; set; } = 0;
 		public string top_left_tile { get; set; } = "";
 		public string level_grid { get; set; } = "";

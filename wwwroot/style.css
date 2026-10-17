@@ -24,6 +24,14 @@ main {
 	display: flex;
 	flex-wrap: wrap;
 	gap: none;
+	overflow: hidden
+}
+
+#gandalf-metadata {
+	position: absolute;
+	background: white;
+	color: black;
+	font-size: .65rem;
 }
 
 .sprite {
@@ -42,6 +50,10 @@ main {
 	align-items: center;
 	user-select: none;
 	justify-content: center;
+}
+
+.tile.dev {
+	z-index: 99999;
 }
 
 .tile.over, .tile.ui-droppable-hover {
@@ -109,6 +121,7 @@ main {
 	cursor: default;
 	display: flex;
 	flex-direction: column;
+	z-index: 999999;
 }
 
 #controller {
@@ -509,7 +522,7 @@ a.ui-button:active,
 	height: 100%;
 	background-size: contain;
     background-repeat: no-repeat;
-    background-position: 50% 50%;
+    background-position: center center;
 }
 
 #block-image-edit-area .object-area-preview {
@@ -539,6 +552,14 @@ a.ui-button:active,
 	background: rgba(255, 0, 0, 0.333);
 }
 
+.object-area.colliding {
+  background: rgba(0, 0, 255, 0.333);
+}
+
+.object-area:not(.colliding) {
+  background: rgba(255, 0, 0, 0.333);
+}
+
 .form-div {
 	display: flex;
 	max-height: 20%;
@@ -559,17 +580,20 @@ a.ui-button:active,
     font-size: 1rem;
 }
 
+
 #view-options {
 	position: absolute;
 	background: rgba(0,0,0,0.05);
 	left: 1vw;
 	top: 1vh;
 	display: flex;
+	z-index: 999999999;
 }
 
 #view-options * {
 	background: transparent;
 	border: none;
+	z-index: 999999999;
 	color: white;
 }
 
