@@ -124,6 +124,10 @@ namespace App.Services
                     WHERE recurrence_id = @recurrence_id
                 ", connection);
                 command.Parameters.AddWithValue("recurrence_id", Guid.Parse(recurrence_id));
+                Console.WriteLine(@$"
+                    DELETE FROM public.Block
+                    WHERE recurrence_id = {recurrence_id}
+                ");
                 await command.ExecuteNonQueryAsync();
 
                 return new ServiceResult("success");

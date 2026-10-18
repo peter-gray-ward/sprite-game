@@ -11,6 +11,8 @@ var events = {
   '#block-css:keyup': ValidateBlockCSS,
   '#apply-block-edits:click': ApplyBlockEdits,
   '#view-object-areas:change': ChangeViewObjectAreas,
+
+  '#view-debug-areas:change': ChangeViewDebugAreas,
   '#delete-block:click': DeleteBlock,
   // '.tile:click': DeselectBlock,
   '#manage-blocks .tbody .tr:mouseover': MouseOverBlockRow,
@@ -35,6 +37,7 @@ var view = {
   $height: $('#view').height(),
   drop_area: {},
   view_block_areas: false,
+  view_debug_areas: false,
   object_areas: [],
   wall_bump_sound: new Audio("/wall-bump-sound.mp3"),
   activity: {},
@@ -218,6 +221,7 @@ function SearchPixabay(event, fresh = true) {
   searching = true
   try {
     var elem = document.getElementById('pixabay-search')
+    if (fresh) elem.dataset.page = 1;
     var results = document.getElementById('image-browse-results')
     results.classList.add('pixabay-results')
     if (fresh) {
@@ -246,7 +250,6 @@ function SearchPixabay(event, fresh = true) {
 function ScrollPixabayResults(event) {
   if ($('#image-browse-results').hasClass('pixabay-results')) {
     const scrollableElement = event.target;
-    console.log(scrollableElement.scrollHeight - scrollableElement.scrollTop, scrollableElement.clientHeight)
     const isAtBottom = scrollableElement.scrollHeight - scrollableElement.scrollTop <= scrollableElement.clientHeight + .5;
     if (isAtBottom) {
       SearchPixabay(null, false);
@@ -376,7 +379,6 @@ function MakeDroppable(element) {
               if (i < view.dimension && j < view.dimension) {
                 const elem = document.getElementById(`tile_${id[0]}_${i}-${j}`);
                 $(elem).addClass('over')
-                console.log(`#tile_${id[0]}_${i}-${j}`, elem)
               }
             }
           }
@@ -424,6 +426,7 @@ function GetBlocks() {
       console.error(err)
     }
     if (res.status == 'success') {
+
 
       control.needsUpdate = false
       var blocks = res.data.map(block => {
@@ -477,79 +480,105 @@ function RenderManageBlocks(blocks) {
 }
 
 function RenderBlocks(blocks) {
-  for (var block of blocks) {
+  const viewElement = document.getElementById('view');
 
-    for (var y = block.start_y; 
-      (block.dir_y > 0 ? y < block.start_y + (block.dimension * block.repeat_y) : y > block.start_y + (block.dimension * block.repeat_y)); 
-      y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
-      
-      for (var x = block.start_x; 
-        (block.dir_x > 0 ? x < block.start_x + (block.dimension * block.repeat_x) : x > block.start_x + (block.dimension * block.repeat_x)); 
-        x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
+  for (const block of blocks) {
+    const transform = String(block.css.transform ?? '');
+    const scale = Number(
+      transform.match(/scale\(\s*([+-]?(?:\d+\.?\d*|\.\d+))/)?.[1] ?? 1
+    );
 
-        // temporary
-        if (y < 0) y = 0
-        if (x < 0) x = 0
-        
-        let renderedBlock = Object.assign({}, block);
-        renderedBlock.start_x = x;
-        renderedBlock.start_y = y;
+    const dimension = Number(block.dimension);
+    const step = dimension * scale;
 
-        var div = document.createElement("div");
-        div.id = renderedBlock.id + '::' + y + '_' + x
+    const dirX = Number(block.dir_x) < 0 ? -1 : 1;
+    const dirY = Number(block.dir_y) < 0 ? -1 : 1;
+
+    const repeatX = Math.max(0, Math.floor(Number(block.repeat_x)));
+    const repeatY = Math.max(0, Math.floor(Number(block.repeat_y)));
+
+    const baseX = Number(block.start_x);
+    const baseY = Number(block.start_y);
+
+    for (let yi = 0; yi < repeatY; yi++) {
+      for (let xi = 0; xi < repeatX; xi++) {
+        const x = baseX + xi * step * dirX;
+        const y = baseY + yi * step * dirY;
+
+        const renderedBlock = {
+          ...block,
+          start_x: x,
+          start_y: y
+        };
+
+        const div = document.createElement('div');
+
+        div.id = `${block.id}::${y}_${x}`;
         div.classList.add('block');
-        if (renderedBlock.id == control.block_id) {
-          div.classList.add('editing')
+
+        if (block.id === control.block_id) {
+          div.classList.add('editing');
         }
 
-        var css = Object.assign({}, renderedBlock.css);
-        css.backgroundImage = `url(/image/${renderedBlock.image_id})`
+        const css = { ...block.css };
+
+        css.backgroundImage = `url(/image/${block.image_id})`;
+        delete css.zIndex;
 
         if (block.random_rotation > 0) {
-          var randomRotation = 'rotate(' + Math.floor(Math.random() * 4) * 90 + 'deg)';
-          
-          if (/rotate\(.+\)/.test(block.css.transform)) {
-            block.css.transform = block.css.transform.replace(/rotate\(.+\)/, randomRotation);
-          } else {
-            block.css.transform += ' ' + randomRotation;
-          }
+          const rotation = Math.floor(Math.random() * 4) * 90;
+
+          css.transform = String(css.transform ?? '')
+            .replace(/rotate\([^)]*\)/g, '')
+            .trim();
+
+          css.transform = `${css.transform} rotate(${rotation}deg)`.trim();
         }
 
-        if (css.zIndex) {
-          delete css.zIndex
-        }
+        // Use the original tile as the coordinate reference.
+        const tileY = Math.max(0, Math.min(19, Math.floor(y)));
+        const tileX = Math.max(0, Math.min(19, Math.floor(x)));
 
-        $(div).css(css)
+        const startTile = document.getElementById(
+          `tile_${block.level_grid}_${tileY}-${tileX}`
+        );
 
-        let startY = renderedBlock.start_y < 0 ? 0 : renderedBlock.start_y
-        let startX = renderedBlock.start_x < 0 ? 0 : renderedBlock.start_x
-        startY = startY > 19 ? 19 : startY
-        startX = startX > 19 ? 19 : startX
-        var startTile = document.getElementById(`tile_${block.level_grid}_${startY}-${startX}`);
-        var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * renderedBlock.dimension
-        var tileHeight = tileWidth
-        div.style.width = tileWidth + 'px'
-        div.style.height = tileHeight + 'px'
-        div.style.top = startTile.offsetTop + 'px'
-        div.style.left = startTile.offsetLeft + 'px'
-        div.dataset.id = block.id
-        div.dataset.recurrence_id = renderedBlock.recurrence_id;
-        if (renderedBlock.ground) {
+        if (!startTile) continue;
+
+        const tileSize = startTile.getBoundingClientRect().width;
+        const blockSize = tileSize * dimension;
+
+        // Preserve fractional tile positions.
+        const top = startTile.offsetTop + (y - tileY) * tileSize;
+        const left = startTile.offsetLeft + (x - tileX) * tileSize;
+
+        $(div).css({
+          ...css,
+          width: `${blockSize}px`,
+          height: `${blockSize}px`,
+          top: `${top}px`,
+          left: `${left}px`
+        });
+
+        div.dataset.id = block.id;
+        div.dataset.recurrence_id = block.recurrence_id;
+
+        if (block.ground) {
           div.classList.add('ground');
         }
 
-        document.getElementById('view').appendChild(div)
+        viewElement.appendChild(div);
 
-        MakeDraggable(div)
+        MakeDraggable(div);
 
-        view.blocks[renderedBlock.id].divs.push(div)
+        view.blocks[block.id].divs.push(div);
       }
     }
   }
 
-  AddObjectAreas()
-  AdjustEditBlockImage()
-  AddEvents()
+  AddObjectAreas();
+  AdjustEditBlockImage();
+  AddEvents();
 }
 
 
@@ -599,7 +628,7 @@ function FinalizeBlocks() {
       // Objects farther down the screen appear in front.
       $(div).css('z-index', Math.floor(depthY));
 
-      if (div.children.length == 0) {
+      if (view.view_debug_areas && div.children.length == 0) {
         div.innerHTML = `<div style="opacity:0.5;font-size:.25rem;background:white;display:flex;align-items:center;justify-content:center">
           depth y: ${depthY}
           z: ${Math.floor(depthY)}
@@ -685,165 +714,7 @@ function LoadSprite() {
   RenderGandalf()
 }
 
-var start = true;
-var i = 0;
-function RenderGandalf() {
-  if (Object.keys(view.activity).length || start) {
-    start = false;
-    let isMoving = false;
-    const originalPosition = Object.assign({}, view.sprite.position)
-    for (var key of view.sprite.keys) {
-      if (view.sprite.key_values[key]) {
-        isMoving = true;
-        for (var pos in view.sprite.key_values[key]) {
-          view.sprite.position[pos] += view.sprite.key_values[key][pos];
-        }
-      }
-    }
 
-    if (isMoving && view.sprite.direction) {
-      view.sprite.rotation[view.sprite.direction].index++;
-      if (view.sprite.rotation[view.sprite.direction].index > 8) {
-        view.sprite.rotation[view.sprite.direction].index = 0;
-      }
-    }
-
-    const spriteDirection = view.sprite.direction;
-    const spriteSize = 64; // Size of each sprite in pixels
-    const imageHeight = 1344; // Total height of the sprite sheet in pixels
-    const scaledImageHeight = 189; // Total height of the sprite sheet in vh
-    const scalingFactor = 189 / 1344;
-    const rotation = view.sprite.rotation[spriteDirection || "up"];
-    const sectionWidth = view.sprite.section * 832;
-    const offset = view.sprite.offset * 832;
-    const backgroundX = `calc(-1 * (${rotation.index} * 64) * ${scalingFactor}vh)`;
-    const backgroundY = `calc(-1 * ${rotation.top * 1344} * ${scalingFactor}vh)`;
-
-    var sprite$viewHeight = spriteSize * scalingFactor;
-    var css = {
-      background: `url(/Gandalf.png) no-repeat`,
-      backgroundSize: `auto ${scaledImageHeight}vh`,
-      backgroundPosition: i % 8 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
-      width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
-      height: `${sprite$viewHeight}vh`,
-      top: view.sprite.position.top * view.$height,
-      left: view.sprite.position.left * view.$height
-    };
-
-   
-
-    if (i++ == 100) {
-      i = 0
-    }
-
-    let spriteTop = view.sprite.position.top * view.$height;
-    let spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height();
-    let spriteRight = view.sprite.position.left * view.$height + $("#gandalf").width();
-    let spriteLeft = view.sprite.position.left * view.$height;
-    const gandalf$height = $("#gandalf").height();
-    const gandalf$width = $("#gandalf").width()
-
-
-    spriteTop += gandalf$height * .75
-    spriteBottom -= gandalf$height * .15
-    spriteLeft += gandalf$width * 0.333
-    spriteRight -= gandalf$width * 0.333
-
-    var bumps = false
-    for (var object_area of view.object_areas) {
-      switch (view.sprite.direction) {
-      case "up":
-        if (spriteTop <= object_area.top + object_area.height + 1
-          && spriteBottom > object_area.top + object_area.height
-          && spriteRight >= object_area.left 
-          && spriteLeft <= object_area.left + object_area.width) {
-          bumps = true
-          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
-        } else {
-          $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
-        }
-        break;
-      case "right":
-        if (spriteRight >= object_area.left - 1
-          && spriteLeft < object_area.left
-          && spriteTop <= object_area.top + object_area.height
-          && spriteBottom >= object_area.top) {
-           bumps = true
-          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
-        } else {
-          $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
-        }
-        break;
-      case "down":
-        if (spriteBottom >= object_area.top - 1
-          && spriteTop < object_area.top
-          && spriteRight >= object_area.left 
-          && spriteLeft <= object_area.left + object_area.width) {
-          bumps = true
-          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.5)')
-        } else {
-          // $('#' + object_area.id).css('background', 'rgba(255,0,0,0.5)')
-        }
-        break;
-      case "left":
-        if (spriteLeft <= object_area.left + object_area.width + 1
-          && spriteRight > object_area.left + object_area.width
-          && spriteTop <= object_area.top + object_area.height
-          && spriteBottom >= object_area.top) {
-          bumps = true
-          $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
-        } else {
-          $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
-        }
-        break;
-      }
-    }
-
-    if (bumps) {
-      if (isMoving) {
-        view.wall_bump_sound.play()
-      }
-      delete css.top
-      delete css.left
-      view.sprite.position = originalPosition
-    } else {
-      css.top += 'px'
-      css.left += 'px'
-    }
-
-    switch (view.sprite.direction) {
-    default:
-      css.zIndex = Math.floor(spriteBottom)
-      break;
-    }
-
-    $(view.sprite.el).css(css);
-    $(view.sprite.el).html(css.zIndex)
-    $(view.sprite.el)[0].style.zIndex = css.zIndex
-    console.log(css.zIndex, spriteBottom, $(view.sprite.el)[0].style.zIndex)
-
-
-    var gandalfMetadata = document.getElementById('gandalf-metadata')
-    if (gandalfMetadata) {
-      gandalfMetadata.remove()
-    }
-    gandalfMetadata = document.createElement('pre')
-    gandalfMetadata.id = 'gandalf-metadata'
-    gandalfMetadata.style.top = spriteBottom + 'px'
-    gandalfMetadata.style.left = spriteLeft + 'px'
-    gandalfMetadata.innerHTML = `
-      ${JSON.stringify(css, null, 2)}
-
-    `
-    document.getElementById('view').appendChild(gandalfMetadata)
-
-
-    $("#object-areas-count").html(view.object_areas.length)
-  }
-
-  cancelAnimationFrame(view.sprite.frame)
-  window.requestAnimationFrame(RenderGandalf);
-}
 
 function LoadImageIds() {
   var xhr = new XMLHttpRequest()
@@ -892,24 +763,33 @@ function SelectTag(event) {
 }
 
 function AdjustEditBlockImage() {
-  var biea = document.getElementById('block-image-edit-area')
-  var width = +getComputedStyle(biea).width.split('px')[0]
-  var height = +getComputedStyle(biea).height.split('px')[0]
+  const container = document.getElementById('block-image-edit-area');
+  const image = document.getElementById('block-image');
+
+  const width = container.clientWidth;
+  const height = container.clientHeight;
 
   $('#block-image-container, #block-image').css({
     width: width + 'px',
     height: height + 'px'
-  })
+  });
 }
 
 function SelectBlock(event) {
-  console.log('SelectBlock')
-  var id = event.srcElement.id.split("__")[1].replace('-', '_');
+  console.log('SelectBlock', event.srcElement)
+  var id;
+
+  if (event.srcElement.id) {
+    id = event.srcElement.id.split("__")[1].replace('-', '_');
+  } else if (event.srcElement.dataset) {
+    id = event.srcElement.dataset.id;
+  }
+
   let selectedBlocks = [];
 
 
   for (let child of document.getElementById('view').children) {
-    if (child.id.endsWith("::" + id)) {
+    if (child.id.endsWith("::" + id) || child.id.startsWith(id)) {
       selectedBlocks.push(child);
     }
   }
@@ -955,7 +835,11 @@ function SelectBlock(event) {
   $("#block-type-edit #ground").prop('checked', block.ground > 0)
   $("#parent-id").html(block.parent_id)
 
-  $('a[href="#edit-block"]').click()
+  $('a[href="#edit-block"]').click();
+
+  requestAnimationFrame(() => {
+    AdjustEditBlockImage();
+  });
 
 
   var css = Object.assign({}, view.blocks[control.block_id].block.css);
@@ -965,7 +849,10 @@ function SelectBlock(event) {
   css.backgroundImage = `url(/image/${view.blocks[control.block_id].block.image_id})`;
   css.transform = ''//css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
 
-  console.log('css for editor', css)
+  if (css.transform) {
+    css.transform = css.transform.replace(/scale\(.+\)/, '')
+  }
+  // console.log('css for editor', css)
   $('#block-image').css(css)
   $('#block-type-edit .drop-dimensions input').val(view.blocks[control.block_id].block.dimension)
 
@@ -977,6 +864,9 @@ function SelectBlock(event) {
 
   ValidateBlockCSS()
   AdjustEditBlockImage()
+
+
+  $('.z-index').val(css.zIndex)
 
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('.object-area-preview.selected').removeClass('selected')
@@ -1169,7 +1059,7 @@ function ApplyBlockEdits() {
     }
 
     var css = Object.assign({}, newCSS);
-    css.transform = css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
+    css.transform = css.transform.replace(/scale\(.+\)/, '')
 
     $('#block-image').css(css)
     
@@ -1454,6 +1344,11 @@ function ChangeViewObjectAreas() {
   AddObjectAreas()
 }
 
+function ChangeViewDebugAreas() {
+  var doView = $('#view-debug-areas').is(':checked')
+  view.view_debug_areas = doView;
+}
+
 function DeleteBlock() {
   var xhr = new XMLHttpRequest();
   xhr.open("DELETE", "/blocks/delete/" + view.blocks[control.block_id].block.recurrence_id);
@@ -1710,4 +1605,163 @@ function SerializeAndSaveLevelMetadata() {
   levelRequest.name = document.getElementById('level-name').value; // vadefault
   levelRequest.boundary_tile_ids = JSON.stringify(levelRequest.boundary_tile_ids);
   xhr.send(JSON.stringify(levelRequest));
+}
+
+
+
+var i = 0;
+function RenderGandalf() {
+  let isMoving = false;
+  const originalPosition = Object.assign({}, view.sprite.position)
+  for (var key of view.sprite.keys) {
+    if (view.sprite.key_values[key]) {
+      isMoving = true;
+      for (var pos in view.sprite.key_values[key]) {
+        view.sprite.position[pos] += view.sprite.key_values[key][pos];
+      }
+    }
+  }
+
+  if (isMoving && view.sprite.direction) {
+    view.sprite.rotation[view.sprite.direction].index++;
+    if (view.sprite.rotation[view.sprite.direction].index > 8) {
+      view.sprite.rotation[view.sprite.direction].index = 0;
+    }
+  }
+
+  const spriteDirection = view.sprite.direction;
+  const spriteSize = 64; // Size of each sprite in pixels
+  const imageHeight = 1344; // Total height of the sprite sheet in pixels
+  const scaledImageHeight = 189; // Total height of the sprite sheet in vh
+  const scalingFactor = 189 / 1344;
+  const rotation = view.sprite.rotation[spriteDirection || "up"];
+  const sectionWidth = view.sprite.section * 832;
+  const offset = view.sprite.offset * 832;
+  const backgroundX = `calc(-1 * (${rotation.index} * 64) * ${scalingFactor}vh)`;
+  const backgroundY = `calc(-1 * ${rotation.top * 1344} * ${scalingFactor}vh)`;
+
+  var sprite$viewHeight = spriteSize * scalingFactor;
+  var css = {
+    background: `url(/Gandalf.png) no-repeat`,
+    backgroundSize: `auto ${scaledImageHeight}vh`,
+    backgroundPosition: i % 8 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
+    width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
+    height: `${sprite$viewHeight}vh`,
+    top: view.sprite.position.top * view.$height,
+    left: view.sprite.position.left * view.$height
+  };
+
+ 
+
+  if (i++ == 100) {
+    i = 0
+  }
+
+  let spriteTop = view.sprite.position.top * view.$height;
+  let spriteBottom = view.sprite.position.top * view.$height + $("#gandalf").height();
+  let spriteRight = view.sprite.position.left * view.$height + $("#gandalf").width();
+  let spriteLeft = view.sprite.position.left * view.$height;
+  const gandalf$height = $("#gandalf").height();
+  const gandalf$width = $("#gandalf").width()
+
+
+  spriteTop += gandalf$height * .75
+  spriteBottom -= gandalf$height * .15
+  spriteLeft += gandalf$width * 0.333
+  spriteRight -= gandalf$width * 0.333
+
+  var bumps = false
+  for (var object_area of view.object_areas) {
+    switch (view.sprite.direction) {
+    case "up":
+      if (spriteTop <= object_area.top + object_area.height + 1
+        && spriteBottom > object_area.top + object_area.height
+        && spriteRight >= object_area.left 
+        && spriteLeft <= object_area.left + object_area.width) {
+        bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+      } else {
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+      }
+      break;
+    case "right":
+      if (spriteRight >= object_area.left - 1
+        && spriteLeft < object_area.left
+        && spriteTop <= object_area.top + object_area.height
+        && spriteBottom >= object_area.top) {
+         bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+      } else {
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+      }
+      break;
+    case "down":
+      if (spriteBottom >= object_area.top - 1
+        && spriteTop < object_area.top
+        && spriteRight >= object_area.left 
+        && spriteLeft <= object_area.left + object_area.width) {
+        bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.5)')
+      } else {
+        // $('#' + object_area.id).css('background', 'rgba(255,0,0,0.5)')
+      }
+      break;
+    case "left":
+      if (spriteLeft <= object_area.left + object_area.width + 1
+        && spriteRight > object_area.left + object_area.width
+        && spriteTop <= object_area.top + object_area.height
+        && spriteBottom >= object_area.top) {
+        bumps = true
+        $('#' + object_area.id).css('background', 'rgba(0,0,255,0.333)')
+      } else {
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.333)')
+      }
+      break;
+    }
+  }
+
+  if (bumps) {
+    if (isMoving) {
+      view.wall_bump_sound.play()
+    }
+    delete css.top
+    delete css.left
+    view.sprite.position = originalPosition
+  } else {
+    css.top += 'px'
+    css.left += 'px'
+  }
+
+  switch (view.sprite.direction) {
+  default:
+    css.zIndex = Math.floor(spriteBottom)
+    break;
+  }
+
+  $(view.sprite.el).css(css);
+  $(view.sprite.el).html(css.zIndex)
+  $(view.sprite.el)[0].style.zIndex = css.zIndex
+
+
+  var gandalfMetadata = document.getElementById('gandalf-metadata')
+  if (gandalfMetadata) {
+    gandalfMetadata.remove()
+  }
+  if (view.view_debug_areas) {
+    gandalfMetadata = document.createElement('pre')
+    gandalfMetadata.id = 'gandalf-metadata'
+    gandalfMetadata.style.top = spriteBottom + 'px'
+    gandalfMetadata.style.left = spriteLeft + 'px'
+    gandalfMetadata.innerHTML = `
+      ${JSON.stringify(css, null, 2)}
+
+    `
+    document.getElementById('view').appendChild(gandalfMetadata)
+  }
+
+  $("#object-areas-count").html(view.object_areas.length)
+
+
+  cancelAnimationFrame(view.sprite.frame)
+  window.requestAnimationFrame(RenderGandalf);
 }
