@@ -521,6 +521,8 @@ function ChangeGroundOrder(id, delta) {
     }
   });
 
+  if (typeof block.parent_id == 'object') block.parent_id = null
+
   xhr.send(JSON.stringify({
     ...block,
     css: JSON.stringify(block.css),
@@ -584,22 +586,20 @@ function RenderBlocks(blocks) {
           css.transform = `${css.transform} rotate(${rotation}deg)`.trim();
         }
 
-        // Use the original tile as the coordinate reference.
-        const tileY = Math.max(0, Math.min(19, Math.floor(y)));
-        const tileX = Math.max(0, Math.min(19, Math.floor(x)));
-
-        const startTile = document.getElementById(
-          `tile_${block.level_grid}_${tileY}-${tileX}`
+        const originTile = document.getElementById(
+          `tile_${block.level_grid}_0-0`
         );
 
-        if (!startTile) continue;
+        if (!originTile) continue;
 
-        const tileSize = startTile.getBoundingClientRect().width;
+        const tileSize = originTile.getBoundingClientRect().width;
+        const originTop = originTile.offsetTop;
+        const originLeft = originTile.offsetLeft;
+
         const blockSize = tileSize * dimension;
 
-        // Preserve fractional tile positions.
-        const top = startTile.offsetTop + (y - tileY) * tileSize;
-        const left = startTile.offsetLeft + (x - tileX) * tileSize;
+        const top = originTop + y * tileSize;
+        const left = originLeft + x * tileSize;
 
         $(div).css({
           ...css,
@@ -608,6 +608,8 @@ function RenderBlocks(blocks) {
           top: `${top}px`,
           left: `${left}px`
         });
+
+
 
         div.dataset.id = block.id;
         div.dataset.recurrence_id = block.recurrence_id;
@@ -1148,6 +1150,8 @@ function ApplyBlockEdits() {
   if (payload.parent_id.length !== 36) {
     payload.parent_id = null;
   }
+
+  if (typeof payload.parent_id == 'object') payload.parent_id = null
   xhr.send(JSON.stringify(
     payload
   ));

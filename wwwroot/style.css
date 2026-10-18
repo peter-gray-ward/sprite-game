@@ -42,7 +42,7 @@ main {
 	width: 5%;
 	height: 5%;
 	margin: 0;
-	border: 1px dotted rgba(255, 255, 255, 0.3);
+	/*border: 1px dotted rgba(255, 255, 255, 0.3);*/
 	z-index: 0;
 	font-size: 0.5rem;
 	color: rgba(255, 255, 255, 0.3);
