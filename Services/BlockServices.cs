@@ -42,7 +42,8 @@ namespace App.Services
                         ground,
                         parent_id,
                         css,
-                        object_area
+                        object_area,
+                        object_area_inclusions
                     )
                     VALUES
                     (
@@ -64,7 +65,8 @@ namespace App.Services
                         @ground,
                         @parent_id,
                         @css,
-                        @object_area
+                        @object_area,
+                        @object_area_inclusions
                     )
                 ", connection);
 
@@ -89,6 +91,7 @@ namespace App.Services
                 command.Parameters.AddWithValue("dimension", drop_area.dimension);
                 command.Parameters.AddWithValue("recurrence_id", recurrence_id);
                 command.Parameters.AddWithValue("translate_object_area", drop_area.translate_object_area);
+                command.Parameters.AddWithValue("object_area_inclusions", drop_area.object_area_inclusions);
                 command.Parameters.AddWithValue("random_rotation", drop_area.random_rotation);
                 command.Parameters.AddWithValue("ground", drop_area.ground);
 
@@ -159,7 +162,8 @@ namespace App.Services
                         {(block.parent_id is not null ? "parent_id = @parent_id," : "")}
                         level_id = @level_id,
                         level_grid = @level_grid,
-                        css = @css
+                        css = @css,
+                        object_area_inclusions = @object_area_inclusions
                     WHERE recurrence_id = @recurrence_id
                 ", connection);
                 command.Parameters.AddWithValue("recurrence_id", Guid.Parse(recurrence_id));
@@ -171,6 +175,7 @@ namespace App.Services
                 command.Parameters.AddWithValue("dir_y", block.dir_y);
                 command.Parameters.AddWithValue("dir_x", block.dir_x);
                 command.Parameters.AddWithValue("translate_object_area", block.translate_object_area);
+                command.Parameters.AddWithValue("object_area_inclusions", block.object_area_inclusions);
                 command.Parameters.AddWithValue("random_rotation", block.random_rotation);
                 command.Parameters.AddWithValue("level_id", block.level_id);
                 command.Parameters.AddWithValue("level_grid", block.level_grid);

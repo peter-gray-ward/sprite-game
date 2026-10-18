@@ -449,34 +449,83 @@ function GetBlocks() {
 }
 
 function RenderManageBlocks(blocks) {
-  var keys = ['id', 'recurrence_id', 'image_id']
-  document.getElementById("manage-blocks").innerHTML = `
+  const keys = ['id', 'recurrence_id', 'image_id', 'ground_order'];
+
+  document.getElementById('manage-blocks').innerHTML = `
     <div class="table">
       <div class="thead">
         <div class="tr">
-          ${
-            keys.map(key => `<div class="th">${key}</div>`).join('')
-          }
+          ${keys.map(key => `<div class="th">${key}</div>`).join('')}
         </div>
       </div>
       <div class="tbody">
-        ${
-          blocks.map(block => `
-            <div class="tr">
-              ${
-                keys.map(key => {
-                  switch (key) {
-                  case 'image_id': return `<div class="td image" style="background-image: url(/image/${block[key]})"></div>`
-                  default: return `<div class="td">${block[key]}</div>`
-                  }
-                }).join('')
+        ${blocks.map(block => `
+          <div class="tr" data-id="${block.id}">
+            ${keys.map(key => {
+              switch (key) {
+                case 'image_id':
+                  return `<div class="td image"
+                    style="background-image: url(/image/${block.image_id})"></div>`;
+
+                case 'ground_order':
+                  return `<div class="td">
+                    ${block.ground ? `
+                      <button class="ground-up" data-id="${block.id}">↑</button>
+                      <span>${block.css.groundOrder ?? 0}</span>
+                      <button class="ground-down" data-id="${block.id}">↓</button>
+                    ` : ''}
+                  </div>`;
+
+                default:
+                  return `<div class="td">${block[key] ?? ''}</div>`;
               }
-            </div>
-          `).join('')
-        }
+            }).join('')}
+          </div>
+        `).join('')}
       </div>
     </div>
   `;
+
+  document.querySelectorAll('.ground-up, .ground-down').forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+
+      const id = button.dataset.id;
+      const delta = button.classList.contains('ground-up') ? 1 : -1;
+
+      ChangeGroundOrder(id, delta);
+    });
+  });
+}
+
+function ChangeGroundOrder(id, delta) {
+  const entry = view.blocks[id];
+  if (!entry || !entry.block.ground) return;
+
+  const block = entry.block;
+  const current = Number(block.css.groundOrder ?? 0);
+
+  block.css.groundOrder = current + delta;
+
+  const xhr = new XMLHttpRequest();
+
+  xhr.open('POST', `/blocks/update/${block.recurrence_id}`);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+
+  xhr.addEventListener('load', function() {
+    const res = JSON.parse(this.response);
+
+    if (res.status === 'success') {
+      control.needsUpdate = true;
+      LoadView();
+    }
+  });
+
+  xhr.send(JSON.stringify({
+    ...block,
+    css: JSON.stringify(block.css),
+    object_area: JSON.stringify(block.object_area)
+  }));
 }
 
 function RenderBlocks(blocks) {
@@ -563,6 +612,9 @@ function RenderBlocks(blocks) {
         div.dataset.id = block.id;
         div.dataset.recurrence_id = block.recurrence_id;
 
+        div.dataset.startX = x;
+        div.dataset.startY = y;
+
         if (block.ground) {
           div.classList.add('ground');
         }
@@ -582,94 +634,77 @@ function RenderBlocks(blocks) {
 }
 
 
+
 function FinalizeBlocks() {
 
-  // STEP 1: Calculate the z-index of every block.
+  // STEP 1: Calculate one z-index per logical block.
   for (const id in view.blocks) {
-
-    // Retrieve the block's data and rendered HTML elements.
     const { block, divs } = view.blocks[id];
 
-    // Ground blocks (floor textures, etc.) always stay behind everything.
+    if (!divs.length) continue;
+
+    // Ground objects retain their manually assigned order.
     if (block.ground) {
+      const order = Number(block.css.groundOrder ?? 0);
+
       for (const div of divs) {
-        $(div).css('z-index', 1);
+        div.style.zIndex = order;
       }
+
       continue;
     }
 
-    // A block can have multiple rendered instances because of repeat_x/repeat_y.
-    // Calculate the depth of each rendered instance separately.
-    divs.forEach((div, index) => {
-
-      // Find the object areas belonging to this specific block instance.
-      // CreateAndAddBlockArea() assigns each instance an "__index" suffix.
-      const areas = view.object_areas.filter(area =>
-        area.block_id === id &&
-        area.id.endsWith(`__${index}`)
-      );
-
-      // Determine the bottom edge of the actual rendered block.
-      // This is our fallback if the block has no object areas.
-      const divBottom = div.offsetTop + div.offsetHeight;
-
-      // If object areas exist, use the LOWEST (frontmost) edge
-      // of the object's physical footprint.
-      //
-      // Because Y increases downward:
-      // Math.max() gives us the frontmost edge.
-      //
-      // Otherwise, use the bottom of the rendered block.
-      const depthY = areas.length
-        ? Math.max(...areas.map(area => area.top + area.height))
-        : divBottom;
-
-      // Assign depth as the z-index.
-      // Objects farther down the screen appear in front.
-      $(div).css('z-index', Math.floor(depthY));
-
-      if (view.view_debug_areas && div.children.length == 0) {
-        div.innerHTML = `<div style="opacity:0.5;font-size:.25rem;background:white;display:flex;align-items:center;justify-content:center">
-          depth y: ${depthY}
-          z: ${Math.floor(depthY)}
-      </div>`
-      }
-
-    });
-  }
-
-
-  // STEP 2: Position child blocks immediately above their parents.
-  //
-  // For example, a cushion belonging to a couch should render
-  // above the couch rather than being independently depth-sorted.
-  for (const id in view.blocks) {
-
-    const { block, divs } = view.blocks[id];
-
-    // Ground blocks have already been handled.
-    if (block.ground) continue;
-
-    // Skip blocks that have no parent.
-    if (!block.parent_id) continue;
-
-    // Look up the parent block.
-    const parent = view.blocks[block.parent_id];
-
-    // Ignore missing parents.
-    if (!parent || !parent.divs.length) continue;
-
-    // Find the highest z-index among the parent's rendered instances.
-    const parentDepth = Math.max(
-      ...parent.divs.map(div => Number($(div).css('z-index')))
+    // Collect object areas across ALL repeated instances.
+    const areas = view.object_areas.filter(
+      area => area.block_id === id
     );
 
-    // Place the child just above its parent.
+    // Determine the bottommost edge of the entire group.
+    const depthY = areas.length
+      ? Math.max(...areas.map(area => area.top + area.height))
+      : Math.max(...divs.map(div => div.offsetTop + div.offsetHeight));
+
+    const zIndex = Math.floor(depthY);
+
+    // Every instance shares the same depth.
     for (const div of divs) {
-      $(div).css('z-index', parentDepth + 1);
+      div.style.zIndex = zIndex;
+
+      if (view.view_debug_areas && div.children.length === 0) {
+        div.innerHTML = `
+          <div style="
+            opacity: 0.5;
+            font-size: .25rem;
+            background: white;
+          ">
+            group depth: ${depthY}
+            z: ${zIndex}
+          </div>
+        `;
+      }
+    }
+  }
+
+  // STEP 2: Position child blocks above their parents.
+  for (const id in view.blocks) {
+    const { block, divs } = view.blocks[id];
+
+    if (block.ground || !block.parent_id) continue;
+
+    const parent = view.blocks[block.parent_id];
+
+    if (!parent || !parent.divs.length) continue;
+
+    const parentDepth = Math.max(
+      ...parent.divs.map(div => Number(div.style.zIndex))
+    );
+
+    for (const div of divs) {
+      div.style.zIndex = parentDepth + 1;
     }
   }
 }
+
 
 
 function LoadTiles(level_grid) {
@@ -834,6 +869,13 @@ function SelectBlock(event) {
   $("#block-type-edit #random-rotation").prop('checked', block.random_rotation > 0)
   $("#block-type-edit #ground").prop('checked', block.ground > 0)
   $("#parent-id").html(block.parent_id)
+  const inclusions = (
+    block.object_area_inclusions || '1 1 1 1'
+  ).split(' ');
+
+  $('#object-area-inclusions input').each(function(index) {
+    $(this).prop('checked', inclusions[index] === '1');
+  });
 
   $('a[href="#edit-block"]').click();
 
@@ -1076,6 +1118,12 @@ function ApplyBlockEdits() {
     'dir_x': +$('#block-type-edit .x-dir').val(),
     'dir_y': +$('#block-type-edit .y-dir').val(),
     'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0,
+    'object_area_inclusions': $('#object-area-inclusions input')
+      .map(function() {
+        return $(this).is(':checked') ? '1' : '0';
+      })
+      .get()
+      .join(' '),
     'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0,
     'ground': $('#ground').is(':checked') ? 1 : 0,
     'parent_id': $("#parent-id").html(),
@@ -1177,36 +1225,40 @@ function isOverlappedByGround(element) {
 }
 
 function AddObjectAreas() {
-  view.object_areas = []
+  view.object_areas = [];
   $('.object-area').remove();
-  if (player.level && player.level.boundary_tile_ids) {
-    for (var id of player.level.boundary_tile_ids) {
-      AddObjectAreaFromBoundaryId(id)
+
+  if (player.level?.boundary_tile_ids) {
+    for (const id of player.level.boundary_tile_ids) {
+      AddObjectAreaFromBoundaryId(id);
     }
   }
 
-  for (var b of Object.values(view.blocks)) {
-    var block = b.block
-    var object_area_index = 0
-    for (var y = block.start_y; y < block.start_y + (block.dimension * block.repeat_y); y += block.dimension * (block.dir_y / Math.abs(block.dir_y))) {
-      for (var x = block.start_x; x < block.start_x + (block.dimension * block.repeat_x); x += block.dimension * (block.dir_x / Math.abs(block.dir_x))) {
-        let renderedBlock = Object.assign({}, block);
-        renderedBlock.start_x = x
-        renderedBlock.start_y = y
-        
+  for (const { block, divs } of Object.values(view.blocks)) {
+    divs.forEach((div, index) => {
+      const renderedBlock = {
+        ...block,
+        start_x: Number(div.dataset.startX),
+        start_y: Number(div.dataset.startY)
+      };
 
-        // still need to accomodate for expanding to adjacent grids
-        try {
-          const { top, left, width, height } = GetBlockDimensions(renderedBlock)
+      const width = div.offsetWidth;
+      const height = div.offsetHeight;
+      const top = div.offsetTop;
+      const left = div.offsetLeft;
 
-          CreateAndAddBlockArea(renderedBlock, top, left, width, height, object_area_index++)
-        } catch (err) {
-          continue
-        }
-      }
-    }
+      CreateAndAddBlockArea(
+        renderedBlock,
+        top,
+        left,
+        width,
+        height,
+        index
+      );
+    });
   }
-  FinalizeBlocks()
+
+  FinalizeBlocks();
 }
 
 function GetBlockDimensions(block) {
@@ -1254,6 +1306,48 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
   return { newLeft, newTop };
 }
 
+
+
+function IncludeObjectArea(block, row, col, repeatRow, repeatCol) {
+  const [top, right, bottom, left] = (
+    block.object_area_inclusions || '1 1 1 1'
+  ).split(' ').map(Number);
+
+  if (top && right && bottom && left) return true;
+
+  if (!block.object_area?.length) return false;
+
+  const rows = block.object_area.map(pair => pair[0]);
+  const cols = block.object_area.map(pair => pair[1]);
+
+  const minRow = Math.min(...rows);
+  const maxRow = Math.max(...rows);
+  const minCol = Math.min(...cols);
+  const maxCol = Math.max(...cols);
+
+  const repeatX = Number(block.repeat_x);
+  const repeatY = Number(block.repeat_y);
+
+  const dirX = Number(block.dir_x) < 0 ? -1 : 1;
+  const dirY = Number(block.dir_y) < 0 ? -1 : 1;
+
+  // Identify the outermost repeated instances.
+  const firstRow = dirY > 0 ? 0 : repeatY - 1;
+  const lastRow = dirY > 0 ? repeatY - 1 : 0;
+
+  const firstCol = dirX > 0 ? 0 : repeatX - 1;
+  const lastCol = dirX > 0 ? repeatX - 1 : 0;
+
+  // Include only areas belonging to selected OUTER edges.
+  return (
+    (top && repeatRow === firstRow && row === minRow) ||
+    (right && repeatCol === lastCol && col === maxCol) ||
+    (bottom && repeatRow === lastRow && row === maxRow) ||
+    (left && repeatCol === firstCol && col === minCol)
+  );
+}
+
+
 function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var _transform = block.css.transform ?? 1;
   var transform = {
@@ -1266,6 +1360,10 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     skewX: 0,
     skewY: 0
   };
+  const repeatX = Number(block.repeat_x);
+
+  const repeatRow = Math.floor(index / repeatX);
+  const repeatCol = index % repeatX;
 
   if (typeof _transform === "number" || !isNaN(Number(_transform))) {
     transform.scale = Number(_transform);
@@ -1304,6 +1402,9 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
   var segment = (width * transform.scale) / 7
   var viewElement = document.getElementById('view')
   for (var object_area of block.object_area) {
+
+    
+
     var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}__${index}`;
     var objectArea = document.createElement('div');
     objectArea.classList.add('object-area');
@@ -1320,6 +1421,17 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
       top: newTop + 'px',
       left: newLeft + 'px'
     });
+
+
+    if (!IncludeObjectArea(
+      block,
+      object_area[0],
+      object_area[1],
+      repeatRow,
+      repeatCol
+    )) {
+      continue;
+    }
 
 
     view.object_areas.push({ 
@@ -1347,6 +1459,10 @@ function ChangeViewObjectAreas() {
 function ChangeViewDebugAreas() {
   var doView = $('#view-debug-areas').is(':checked')
   view.view_debug_areas = doView;
+}
+
+function ChangeOnlyBottomObjectAreas() {
+
 }
 
 function DeleteBlock() {
