@@ -30,10 +30,22 @@ namespace App
 					VALUES
 					('d2358090-8f14-4c5a-8c9e-fe59d58a4e75', 'Level One', 'peter', '', '');
 
+
+					CREATE TABLE document (
+					    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+					    user_name TEXT NOT NULL,
+					    title TEXT NOT NULL DEFAULT 'Untitled',
+					    content TEXT NOT NULL DEFAULT '',
+					    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+					    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+					);
+
+
 					DROP TABLE IF EXISTS Block;
 					CREATE TABLE IF NOT EXISTS Block (
 						id UUID PRIMARY KEY,
 						recurrence_id UUID,
+						tag TEXT,
 						user_name TEXT NOT NULL,
 						start_y INT NOT NULL,
 						start_x INT NOT NULL,
@@ -44,14 +56,26 @@ namespace App
 						level_id UUID NOT NULL,
 						level_grid TEXT NOT NULL,
 						image_id UUID,
+						document_id UUID NULL,
 						css TEXT,
-						dimension INT,
+						dimension_x DOUBLE PRECISION NOT NULL,
+						dimension_y DOUBLE PRECISION NOT NULL,
 						object_area TEXT,
 						translate_object_area INT NOT NULL,
 						object_area_inclusions TEXT NOT NULL,
 						random_rotation INT NOT NULL,
 						ground INT NOT NULL,
 						parent_id UUID
+					);
+
+					CREATE INDEX idx_block_document_id
+					ON block(document_id);
+
+					ALTER TABLE block
+					ADD CONSTRAINT document_no_repetition
+					CHECK (
+					    document_id IS NULL
+					    OR (repeat_x = 1 AND repeat_y = 1)
 					);
 
 					DROP TABLE IF EXISTS Player;

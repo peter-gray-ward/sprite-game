@@ -42,7 +42,8 @@
                     <div id="search-images">
                         <div class="drop-options">
                             <div class="drop-dimensions">
-                                <label>dim</label>&nbsp;<input name="width" class="dimension" type="number" class="width" value="1"/>
+                                <label>dim x</label>&nbsp;<input name="width" class="dimension" type="number" class="width" value="1"/>
+                                <label>dim y</label>&nbsp;<input name="height" class="dimension" type="number" class="height" value="1"/>
                             </div>
                             <div><label>x-repeat</label><input type="number" name="x-repeat" class="x-repeat" value="1" /></div>
                             <div><label>x-dir</label><input type="number" name="x-dir" class="x-dir" value="1" /></div>
@@ -56,6 +57,7 @@
                         </div>
                         <div id="href-input-bar">
                             <input name="href-input" id="href-input" placeholder="input href" />
+                            <input name="href-tag" id="href-tag" placeholder="tag" />
                             <button class="button" id="upload-href">upload</button>
                         </div>
                         <div id="image-browse">
@@ -72,6 +74,12 @@
                                 <div id="block-type-edit">
                                     <p id="block-id"></p>
                                     <div class="form-div">
+                                        <label>tag</label>
+                                        <section>
+                                            <select id="image-tag"></select>
+                                        </section>
+                                    </div>
+                                    <div class="form-div">
                                         <label>y-start</label>
                                         <section>
                                             <input name="y-start" class="y-start" type="number" placeholder="y-start" />
@@ -84,9 +92,15 @@
                                         </section>
                                     </div>
                                     <div class="drop-dimensions form-div">
-                                        <label>dimension</label>
+                                        <label>dimension_x</label>
                                         <section>
-                                            <input name="width" class="dim" type="number" class="width" value="1"/>
+                                            <input name="width" class="dim dimx" type="number" class="width" value="1"/>
+                                        </section>
+                                    </div>
+                                    <div class="drop-dimensions form-div">
+                                        <label>dimension_y</label>
+                                        <section>
+                                            <input name="height" class="dim dimy" type="number" class="height" value="1"/>
                                         </section>
                                     </div>
                                     <div class="form-div">

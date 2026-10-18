@@ -34,6 +34,7 @@ builder.Services.AddScoped<LevelServices>();
 builder.Services.AddScoped<PlayerServices>();
 builder.Services.AddScoped<ImageServices>();
 builder.Services.AddScoped<BlockServices>();
+builder.Services.AddScoped<DocumentServices>();
 
 builder.Services.AddControllers();
 

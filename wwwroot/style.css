@@ -386,6 +386,11 @@ a.ui-button:active,
     background-position: center;
 }
 
+.block.interactable {
+  border: 3px dotted #ffdf00 !important;
+  cursor: pointer;
+}
+
 .block:hover, .block.hovered {
 	border: 2px dotted yellow;
 }

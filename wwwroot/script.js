@@ -28,19 +28,24 @@ var events = {
   'window:mouseup': MouseUp,
 
   '#level-name:change': SerializeAndSaveLevelMetadata,
-  '#level-name:keyup': SerializeAndSaveLevelMetadata
+  '#level-name:keyup': SerializeAndSaveLevelMetadata,
+
+  '#upload-href:click': UploadImageFromUrl
 }
 
 var view = {
-  dimension: 20,
+  dimension_x: 20,
+  dimension_y: 20,
   blocks: {},
   $height: $('#view').height(),
+  $width: $('#view').width(),
   drop_area: {},
   view_block_areas: false,
   view_debug_areas: false,
   object_areas: [],
   wall_bump_sound: new Audio("/wall-bump-sound.mp3"),
   activity: {},
+  command: false,
   sprite: {
     name: 'Gandalf',
     el: undefined,
@@ -87,6 +92,8 @@ var view = {
     z_index: 0
   }
 }
+
+var session = {}
 
 var control = {
   image_urls: {},
@@ -272,6 +279,11 @@ function ParseBackgroundImageId(element) {
 function SaveImage(event, callback) {
   var tag = event ? event.srcElement.dataset.tag : $("#pixabay-search").val()
   var url = event ? event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '') : control.pixabay_url
+  
+  _SaveImage(tag, url);
+}
+
+function _SaveImage(tag, url, callback) {
   var xhr = new XMLHttpRequest()
   xhr.open('POST', '/image/save')
   xhr.setRequestHeader("Content-Type", "application/json");
@@ -350,7 +362,8 @@ function MakeDroppable(element) {
     over: function(event, ui) {
       $('.tile').removeClass('over')
 
-      const dimension = Math.abs(Math.floor($(".drop-dimensions input").val()))
+      const dimension_x = Math.abs(Math.floor($(".drop-dimensions input[name='width']").val()))
+      const dimension_y = Math.abs(Math.floor($(".drop-dimensions input[name='height']").val()))
       const xRepeat = Math.abs(Math.floor($(".x-repeat").val()))
       const yRepeat = Math.abs(Math.floor($(".y-repeat").val()))
       const xDir = Math.abs(Math.floor($(".x-dir").val()))
@@ -362,7 +375,8 @@ function MakeDroppable(element) {
       $('#tile-over-id').html(event.target.id)
 
       view.drop_area = {
-        dimension: control.copy ? view.blocks[control.block_id].block.dimension : dimension,
+        dimension_x: control.copy ? view.blocks[control.block_id].block.dimension_x : dimension_x,
+        dimension_y: control.copy ? view.blocks[control.block_id].block.dimension_y : dimension_y,
         repeat_x: xRepeat, 
         repeat_y: yRepeat,
         x_dir: xDir, 
@@ -372,11 +386,11 @@ function MakeDroppable(element) {
         start_y: id[1][0]
       }
 
-      for (var y = id[1][0]; y < id[1][0] + (dimension * yRepeat); y += dimension * (yDir / Math.abs(yDir))) {
-        for (var x = id[1][1]; x < id[1][1] + (dimension * xRepeat); x += dimension * (xDir / Math.abs(xDir))) {
-          for (var i = y; i < y + dimension; i++) {
-            for (var j = x; j < x + dimension; j++) {
-              if (i < view.dimension && j < view.dimension) {
+      for (var y = id[1][0]; y < id[1][0] + (dimension_y * yRepeat); y += dimension_y * (yDir / Math.abs(yDir))) {
+        for (var x = id[1][1]; x < id[1][1] + (dimension_x * xRepeat); x += dimension_x * (xDir / Math.abs(xDir))) {
+          for (var i = y; i < y + dimension_y; i++) {
+            for (var j = x; j < x + dimension_x; j++) {
+              if (i < view.dimension_y && j < view.dimension_x) {
                 const elem = document.getElementById(`tile_${id[0]}_${i}-${j}`);
                 $(elem).addClass('over')
               }
@@ -530,6 +544,7 @@ function ChangeGroundOrder(id, delta) {
   }));
 }
 
+
 function RenderBlocks(blocks) {
   const viewElement = document.getElementById('view');
 
@@ -539,8 +554,11 @@ function RenderBlocks(blocks) {
       transform.match(/scale\(\s*([+-]?(?:\d+\.?\d*|\.\d+))/)?.[1] ?? 1
     );
 
-    const dimension = Number(block.dimension);
-    const step = dimension * scale;
+    const dimension_x = Number(block.dimension_x);
+    const dimension_y = Number(block.dimension_y);
+
+    const stepX = dimension_x * scale;
+    const stepY = dimension_y * scale;
 
     const dirX = Number(block.dir_x) < 0 ? -1 : 1;
     const dirY = Number(block.dir_y) < 0 ? -1 : 1;
@@ -551,16 +569,23 @@ function RenderBlocks(blocks) {
     const baseX = Number(block.start_x);
     const baseY = Number(block.start_y);
 
+    const originTile = document.getElementById(
+      `tile_${block.level_grid}_0-0`
+    );
+
+    if (!originTile) continue;
+
+    const tileSize = originTile.getBoundingClientRect().width;
+    const originTop = originTile.offsetTop;
+    const originLeft = originTile.offsetLeft;
+
+    const blockWidth = tileSize * dimension_x;
+    const blockHeight = tileSize * dimension_y;
+
     for (let yi = 0; yi < repeatY; yi++) {
       for (let xi = 0; xi < repeatX; xi++) {
-        const x = baseX + xi * step * dirX;
-        const y = baseY + yi * step * dirY;
-
-        const renderedBlock = {
-          ...block,
-          start_x: x,
-          start_y: y
-        };
+        const x = baseX + xi * stepX * dirX;
+        const y = baseY + yi * stepY * dirY;
 
         const div = document.createElement('div');
 
@@ -586,32 +611,19 @@ function RenderBlocks(blocks) {
           css.transform = `${css.transform} rotate(${rotation}deg)`.trim();
         }
 
-        const originTile = document.getElementById(
-          `tile_${block.level_grid}_0-0`
-        );
-
-        if (!originTile) continue;
-
-        const tileSize = originTile.getBoundingClientRect().width;
-        const originTop = originTile.offsetTop;
-        const originLeft = originTile.offsetLeft;
-
-        const blockSize = tileSize * dimension;
-
         const top = originTop + y * tileSize;
         const left = originLeft + x * tileSize;
 
         $(div).css({
           ...css,
-          width: `${blockSize}px`,
-          height: `${blockSize}px`,
+          width: `${blockWidth}px`,
+          height: `${blockHeight}px`,
           top: `${top}px`,
           left: `${left}px`
         });
 
-
-
         div.dataset.id = block.id;
+        div.addEventListener('click', InteractWithBlock);
         div.dataset.recurrence_id = block.recurrence_id;
 
         div.dataset.startX = x;
@@ -634,6 +646,7 @@ function RenderBlocks(blocks) {
   AdjustEditBlockImage();
   AddEvents();
 }
+
 
 
 
@@ -723,13 +736,14 @@ function LoadTiles(level_grid) {
 
 function LoadView() {
   view.block_areas = [];
+  interaction.activeBlock = null;
   for (var id in view.blocks) {
     view.blocks[id].divs = []
   }
   $('.block').each(function(_, elem) {
     elem.remove()
   })
-  $('#gandalf').remove()
+  // $('#gandalf').remove()
   if (control.needsUpdate) {
     GetBlocks()
   } else {
@@ -738,20 +752,33 @@ function LoadView() {
   $('.object-area-preview').css('height', $(".object-area-preview").css('width'))
   $('#block-image-container').css('height', $("#block-image-edit-area").css('width'))
   AddObjectAreas()
-  LoadSprite()
   view.$height = $("#view").height()
 }
 
-function LoadSprite() {
+function LoadSprite(callback) {
   view.sprite.direction = player.direction
   view.sprite.el = document.createElement("div")
   view.sprite.el.id = "gandalf"
   view.sprite.el.classList.add('sprite')
   document.querySelector('#view').appendChild(view.sprite.el)
-  RenderGandalf()
+  callback()
 }
 
-
+function UploadImageFromUrl() {
+  let tag = document.getElementById('href-tag').value;
+  _SaveImage( 
+    tag,
+    document.getElementById('href-input').value,
+    (e) => {
+      alert('finished saving ' + e)
+      SelectTag({
+        srcElement: {
+          value: tag
+        }
+      })
+    }
+  );
+}
 
 function LoadImageIds() {
   var xhr = new XMLHttpRequest()
@@ -771,6 +798,7 @@ function LoadImageIds() {
       imageBrowseResults.innerHTML = ''
       control.image_urls = {}
       var tags = Array.from(new Set(res.data.map(d => d.tag))).sort((a, b) => a > b ? 1 : -1)
+      view.tags = tags;
       for (var i = 0; i < tags.length; i++) {
         var option = document.createElement("option")
         option.value = tags[i]
@@ -858,11 +886,16 @@ function SelectBlock(event) {
 
   const block = view.blocks[control.block_id].block;
 
+  document.querySelector('#image-tag').innerHTML = view.tags.map(t => {
+    return `<option value="${t}" ${t == block.tag ? "selected" : ""}>${t}</option>`
+  })
+
 
   $("#block-id").html(block.id)
   $("#block-type-edit .y-start").val(block.start_y)
   $("#block-type-edit .x-start").val(block.start_x)
-  $("#block-type-edit .dimension").val(block.dimension)
+  $("#block-type-edit .dimx").val(block.dimension_x)
+  $("#block-type-edit .dimy").val(block.dimension_y)
   $("#block-type-edit .y-repeat").val(block.repeat_y)
   $("#block-type-edit .x-repeat").val(block.repeat_x)
   $("#block-type-edit .y-dir").val(block.dir_y)
@@ -898,7 +931,9 @@ function SelectBlock(event) {
   }
   // console.log('css for editor', css)
   $('#block-image').css(css)
-  $('#block-type-edit .drop-dimensions input').val(view.blocks[control.block_id].block.dimension)
+  // todo
+  $('#block-type-edit .drop-dimensions input[name="width"]').val(view.blocks[control.block_id].block.dimension_x)
+  $('#block-type-edit .drop-dimensions input[name="height"]').val(view.blocks[control.block_id].block.dimension_y)
 
   let copyBlock = document.getElementById('copy-block')
   $(copyBlock).css('background-image', css.backgroundImage);
@@ -1112,7 +1147,8 @@ function ApplyBlockEdits() {
   }
 
   UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, {
-    'dimension': +$('#block-type-edit .dim').val(),
+    'dimension_x': +$('#block-type-edit .dimx').val(),
+    'dimension_y': +$('#block-type-edit .dimy').val(),
     'start_x': +$('#block-type-edit .x-start').val(),
     'start_y': +$('#block-type-edit .y-start').val(),
     'repeat_x': +$('#block-type-edit .x-repeat').val(),
@@ -1211,7 +1247,8 @@ function ChangeBlockPosition() {
   });
   xhr.send(JSON.stringify({
     ...edits,
-    dimension: block.dimension,
+    dimension_x: block.dimension_x,
+    dimension_y: block.dimension_y,
     repeat_x: block.repeat_x,
     repeat_y: block.repeat_y,
     dir_x: block.dir_x,
@@ -1273,8 +1310,8 @@ function GetBlockDimensions(block) {
   if (!startTile) return null;
 
 
-  var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension
-  var tileHeight = tileWidth
+  var tileWidth = +getComputedStyle(startTile).width.split('px')[0] * block.dimension_x
+  var tileHeight = +getComputedStyle(startTile).width.split('px')[0] * block.dimension_y
   return {
     top: startTile.offsetTop,
     left: startTile.offsetLeft,
@@ -1403,7 +1440,8 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     }
     transform[match[1]] = +match[2].replace(unitRegex, '');
   }
-  var segment = (width * transform.scale) / 7
+  const segmentX = (width * transform.scale) / 7;
+  const segmentY = (height * transform.scale) / 7;
   var viewElement = document.getElementById('view')
   for (var object_area of block.object_area) {
 
@@ -1416,12 +1454,12 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
 
     
     var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5, block.translate_object_area, units)
-    newTop = newTop + (segment * object_area[0])
-    newLeft = newLeft + (segment * object_area[1])
+    newTop += segmentY * object_area[0];
+    newLeft += segmentX * object_area[1];
 
     $(objectArea).css({
-      width: segment + 'px',
-      height: segment + 'px',
+      width: segmentX + 'px',
+      height: segmentY + 'px',
       top: newTop + 'px',
       left: newLeft + 'px'
     });
@@ -1438,13 +1476,13 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     }
 
 
-    view.object_areas.push({ 
-      block_id: block.id, 
-      id: objectAreaId, 
-      top: newTop, 
-      left: newLeft, 
-      width: segment, 
-      height: segment 
+    view.object_areas.push({
+      block_id: block.id,
+      id: objectAreaId,
+      top: newTop,
+      left: newLeft,
+      width: segmentX,
+      height: segmentY
     });
 
 
@@ -1574,6 +1612,16 @@ function KeyDown(event) {
   if (eventKey === 'shift') {
     view.sprite.shift = true;
   }
+
+  if (eventKey == 'meta') {
+    view.command = true;
+  }
+
+  if (view.command && eventKey == 's') {
+    event.preventDefault()
+    // alert(JSON.stringify(player, null, 2))
+    SaveGame()
+  }
 }
 
 function KeyUp(event) {
@@ -1582,6 +1630,10 @@ function KeyUp(event) {
 
   if (eventKey === 'shift') {
     view.sprite.shift = false;
+  }
+
+  if (eventKey == 'meta') {
+    view.command = false;
   }
 
   if (view.sprite.keys.has(eventKey)) {
@@ -1617,28 +1669,42 @@ function MouseUp(event) {
   control.removing_boundary_tile = false
 }
 
-function LoadPlayerFromCache() {
-  // load player from cache
-  player = {
-    name: getCookieValue("name"),
-    level_id: getCookieValue("level_id"),
-    position_x: getCookieValue("position_x"),
-    position_y: getCookieValue("position_y"),
-    direction: getCookieValue("direction"),
-    z_index: getCookieValue("z_index"),
-    top_left_tile: getCookieValue("top_left_tile"),
-    level_grid: getCookieValue("level_grid")
-  }
-  window.view.sprite.position.left = +player.position_x
-  window.view.sprite.position.top = +player.position_y
-  window.view.sprite.z_index = +player.z_index
+function LoadSession(callback) {
+  console.log('load session')
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/player/session");
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.addEventListener("load", function() {
+    session = JSON.parse(this.response);
+    console.log('-- loaded session', session)
+    callback();
+  });
+  xhr.send();
+}
 
-  document.querySelector("#log p").innerHTML = `
-    <span>${player.level}</span>
-  `
+function LoadPlayer(callback) {
+  player = {
+    name: session.name,
+    level_id: session.level_id,
+    position_x: Number(session.position_x),
+    position_y: Number(session.position_y),
+    direction: session.direction || 'up',
+    z_index: Number(session.z_index) || 0,
+    top_left_tile: session.top_left_tile,
+    level_grid: session.level_grid
+  };
+
+  view.sprite.position.left = player.position_x / view.$width;
+  view.sprite.position.top = player.position_y / view.$height;
+  view.sprite.direction = player.direction;
+  view.sprite.z_index = player.z_index;
+
+  LoadSprite(callback);
 }
 
 function LoadPlayerPostInitalFromServer(res) {
+
+  console.log('LoadPlayerPostInitalFromServer')
   player.level = res.data;
       
   try {
@@ -1649,9 +1715,11 @@ function LoadPlayerPostInitalFromServer(res) {
     $('#level-name').val(res.data.name);
     $('#boundary-tile-ids').html(JSON.stringify(Array.from(control.boundary_tile_ids)));
   } catch (NoTilesYet) {}
+
 }
 
 function LoadLevel(res) {
+  console.log('load level')
   LoadPlayerPostInitalFromServer(res)
   LoadTiles(player.level_grid)
 
@@ -1685,21 +1753,28 @@ function LoadLevel(res) {
 }
 
 function LoadData() {
+
+  console.log('load data')
   // player
-  LoadPlayerFromCache();
+  LoadSession(() => {
+    LoadPlayer(() => {
 
-  // level
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/level/" + player.level_id);
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.addEventListener("load", function() {
-    var res = JSON.parse(this.response)
+      console.log('load player callback')
+      // level
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", "/level/" + player.level_id);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.addEventListener("load", function() {
+        var res = JSON.parse(this.response)
 
-    if (res.status == 'success') {
-      LoadLevel(res);
-    }
-  });
-  xhr.send();
+        if (res.status == 'success') {
+          LoadLevel(res);
+        }
+      });
+      xhr.send();
+    });
+  })
+  
 }
 
 $( function() {
@@ -1710,7 +1785,13 @@ $( function() {
 
 } )
 
+function SupportsDocument(block) {
+  const tags = String(block.tag ?? '')
+    .toLowerCase()
+    .split(/[,\s]+/);
 
+  return tags.includes('book') || tags.includes('document');
+}
 
 
 function SerializeAndSaveLevelMetadata() {
@@ -1725,6 +1806,137 @@ function SerializeAndSaveLevelMetadata() {
   levelRequest.name = document.getElementById('level-name').value; // vadefault
   levelRequest.boundary_tile_ids = JSON.stringify(levelRequest.boundary_tile_ids);
   xhr.send(JSON.stringify(levelRequest));
+}
+
+
+// Game Save
+function SaveGame() {
+  player.position_x = view.sprite.el.style.left.replace('px', '');
+  player.position_y = view.sprite.el.style.top.replace('px', '');
+  player.direction = view.sprite.direction;
+  player.z_index = view.sprite.z_index;
+
+  const xhr = new XMLHttpRequest();
+
+  xhr.open('POST', '/player/save-game');
+  xhr.setRequestHeader('Content-Type', 'application/json');
+
+  xhr.addEventListener('load', function() {
+    console.log('Save response:', xhr.status, xhr.responseText);
+
+    if (xhr.status !== 200) {
+      console.error('Save failed');
+      return;
+    }
+
+    const res = JSON.parse(xhr.responseText);
+
+    if (res.status === 'success') {
+      alert('Game saved');
+    } else {
+      alert('Save failed:', res);
+    }
+  });
+
+  xhr.send(JSON.stringify({
+    name: player.name,
+    level_id: player.level_id,
+    position_x: player.position_x,
+    position_y: player.position_y,
+    direction: player.direction,
+    z_index: player.z_index,
+    level_grid: player.level_grid
+  }));
+}
+
+// 
+//
+// item interaction
+//
+//
+
+
+const interaction = {
+  radius: 50,
+  activeBlock: null
+};
+
+function GetDistanceToElement(sprite, element) {
+  const a = sprite.getBoundingClientRect();
+  const b = element.getBoundingClientRect();
+
+  const spriteX = a.left + a.width / 2;
+  const spriteY = a.top + a.height / 2;
+
+  // Closest point on the object's rectangle.
+  const closestX = Math.max(b.left, Math.min(spriteX, b.right));
+  const closestY = Math.max(b.top, Math.min(spriteY, b.bottom));
+
+  return Math.hypot(
+    spriteX - closestX,
+    spriteY - closestY
+  );
+}
+
+var updatingInteractions = false
+function UpdateInteractions() {
+  if (updatingInteractions) return;
+  updatingInteractions = true;
+  const sprite = view.sprite.el;
+  if (!sprite) return;
+
+  let nearest = null;
+  let nearestDistance = interaction.radius;
+
+  for (const { block, divs } of Object.values(view.blocks)) {
+    // Initially only books and documents are interactive.
+    const tags = String(block.tag ?? '')
+      .toLowerCase()
+      .split(/[,\s]+/);
+
+    if (!tags.includes('book') && !tags.includes('document')) {
+      continue;
+    }
+
+    for (const div of divs) {
+      const distance = GetDistanceToElement(sprite, div);
+
+      if (distance < nearestDistance) {
+        console.log(distance)
+        nearestDistance = distance;
+        nearest = div;
+        div.classList.add('interactable');
+      } else {
+        div.classList.remove('interactable');
+      }
+    }
+  }
+
+
+  updatingInteractions = false;
+}
+
+
+function InteractWithBlock(event) {
+  const div = event.currentTarget;
+
+  if (div !== interaction.activeBlock) return;
+
+  const block = view.blocks[div.dataset.id]?.block;
+  if (!block) return;
+
+  event.stopPropagation();
+
+  console.log('Interacting with:', block);
+
+  if (block.document_id) {
+    console.log('Open document:', block.document_id);
+
+    // Next step:
+    // OpenDocument(block.document_id);
+  } else {
+    console.log('This object has no document yet.');
+  }
 }
 
 
@@ -1771,7 +1983,6 @@ function RenderGandalf() {
     left: view.sprite.position.left * view.$height
   };
 
- 
 
   if (i++ == 100) {
     i = 0
@@ -1852,6 +2063,8 @@ function RenderGandalf() {
     css.left += 'px'
   }
 
+  UpdateInteractions();
+
   switch (view.sprite.direction) {
   default:
     css.zIndex = Math.floor(spriteBottom)
@@ -1882,6 +2095,11 @@ function RenderGandalf() {
   $("#object-areas-count").html(view.object_areas.length)
 
 
+  player.position_x = view.sprite.position.left;
+  player.position_y = view.sprite.position.top;
+  player.direction = view.sprite.direction;
+  player.z_index = Number(css.zIndex);
+
   cancelAnimationFrame(view.sprite.frame)
-  window.requestAnimationFrame(RenderGandalf);
+  view.sprite.frame = window.requestAnimationFrame(RenderGandalf);
 }

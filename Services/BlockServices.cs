@@ -35,7 +35,8 @@ namespace App.Services
                         repeat_x,
                         dir_y,
                         dir_x,
-                        dimension,
+                        dimension_x,
+                        dimension_y,
                         recurrence_id,
                         translate_object_area,
                         random_rotation,
@@ -43,7 +44,8 @@ namespace App.Services
                         parent_id,
                         css,
                         object_area,
-                        object_area_inclusions
+                        object_area_inclusions,
+                        tag
                     )
                     VALUES
                     (
@@ -58,7 +60,8 @@ namespace App.Services
                         @repeat_x,
                         @dir_y,
                         @dir_x,
-                        @dimension,
+                        @dimension_x,
+                        @dimension_y,
                         @recurrence_id,
                         @translate_object_area,
                         @random_rotation,
@@ -66,7 +69,8 @@ namespace App.Services
                         @parent_id,
                         @css,
                         @object_area,
-                        @object_area_inclusions
+                        @object_area_inclusions,
+                        @tag
                     )
                 ", connection);
 
@@ -88,12 +92,14 @@ namespace App.Services
                 command.Parameters.AddWithValue("repeat_x", drop_area.repeat_x);
                 command.Parameters.AddWithValue("dir_y", drop_area.dir_x / Math.Abs(drop_area.dir_x));
                 command.Parameters.AddWithValue("dir_x", drop_area.dir_y / Math.Abs(drop_area.dir_y));
-                command.Parameters.AddWithValue("dimension", drop_area.dimension);
+                command.Parameters.AddWithValue("dimension_x", drop_area.dimension_x);
+                command.Parameters.AddWithValue("dimension_y", drop_area.dimension_y);
                 command.Parameters.AddWithValue("recurrence_id", recurrence_id);
                 command.Parameters.AddWithValue("translate_object_area", drop_area.translate_object_area);
                 command.Parameters.AddWithValue("object_area_inclusions", drop_area.object_area_inclusions);
                 command.Parameters.AddWithValue("random_rotation", drop_area.random_rotation);
                 command.Parameters.AddWithValue("ground", drop_area.ground);
+                command.Parameters.AddWithValue("tag", drop_area.tag);
 
                 command.Parameters.AddWithValue("object_area", drop_area.object_area);
 
@@ -149,7 +155,8 @@ namespace App.Services
                 var command = new NpgsqlCommand(@$"
                     UPDATE public.Block
                     SET
-                        dimension = @dimension,
+                        dimension_x = @dimension_x,
+                        dimension_y = @dimension_y,
                         start_y = @start_y,
                         start_x = @start_x,
                         repeat_y = @repeat_y,
@@ -163,11 +170,13 @@ namespace App.Services
                         level_id = @level_id,
                         level_grid = @level_grid,
                         css = @css,
-                        object_area_inclusions = @object_area_inclusions
+                        object_area_inclusions = @object_area_inclusions,
+                        tag = @tag
                     WHERE recurrence_id = @recurrence_id
                 ", connection);
                 command.Parameters.AddWithValue("recurrence_id", Guid.Parse(recurrence_id));
-                command.Parameters.AddWithValue("dimension", block.dimension);
+                command.Parameters.AddWithValue("dimension_x", block.dimension_x);
+                command.Parameters.AddWithValue("dimension_y", block.dimension_y);
                 command.Parameters.AddWithValue("start_y", block.start_y);
                 command.Parameters.AddWithValue("start_x", block.start_x);
                 command.Parameters.AddWithValue("repeat_y", block.repeat_y > 0 ? block.repeat_y : 1);
@@ -180,6 +189,7 @@ namespace App.Services
                 command.Parameters.AddWithValue("level_id", block.level_id);
                 command.Parameters.AddWithValue("level_grid", block.level_grid);
                 command.Parameters.AddWithValue("ground", block.ground);
+                command.Parameters.AddWithValue("tag", block.tag);
                 if (block.parent_id is not null)
                 {
                     command.Parameters.AddWithValue("parent_id", block.parent_id);

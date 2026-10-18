@@ -1,5 +1,6 @@
 using App.Models;
 using Npgsql;
+using System.Text.Json;
 
 namespace App.Services
 {
@@ -107,6 +108,51 @@ namespace App.Services
 			catch (Exception ex)
 			{
 				Console.WriteLine(ex.Message);
+				return new ServiceResult("error", ex);
+			}
+		}
+
+		public async Task<ServiceResult> SaveGame(Player player)
+		{
+			try
+			{
+				using var connection = db.GetConnection();
+				await connection.OpenAsync();
+
+				Console.WriteLine(JsonSerializer.Serialize(player, new JsonSerializerOptions
+				{
+				    WriteIndented = true
+				}));
+
+				var command = new NpgsqlCommand(@"
+					UPDATE Player
+					SET position_x = @position_x, 
+						position_y = @position_y, 
+						level_id = @level_id, 
+						level_grid = @level_grid,
+						direction = @direction, 
+						z_index = @z_index
+					WHERE name = @name
+				", connection);
+
+				// Add parameters to prevent SQL injection
+				command.Parameters.AddWithValue("@name", player.name);
+				command.Parameters.AddWithValue("@position_x", player.position_x);
+				command.Parameters.AddWithValue("@position_y", player.position_y);
+				command.Parameters.AddWithValue("@level_id", player.level_id);
+				command.Parameters.AddWithValue("@level_grid", player.level_grid);
+				command.Parameters.AddWithValue("@direction", player.direction);
+				command.Parameters.AddWithValue("@z_index", player.z_index);
+				
+
+				await command.ExecuteNonQueryAsync();
+
+				
+				return new ServiceResult("success");
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("Error saving game " + ex.Message);
 				return new ServiceResult("error", ex);
 			}
 		}
