@@ -1666,7 +1666,7 @@ function KeyDown(event) {
     view.sprite.direction = key.replace('arrow', '');
   }
 
-  if (view.sprite.keys.has('meta') && eventKey == 's') {
+  if (view.sprite.keys.has('meta') && key == 's') {
     event.preventDefault()
     SaveGame()
   }
@@ -1783,11 +1783,93 @@ function OpenDocument(blockId) {
     console.log(book.content, document.getElementById('book-editor').innerHTML)
 
     AddEvents();
+    EnableBookImages();
 
     document.getElementById('book-editor').focus();
   });
 
   xhr.send();
+}
+
+
+
+function EnableBookImages() {
+  // const editor = document.getElementById('book-editor');
+
+  // function insertImage(file) {
+  //   if (!file || !file.type.startsWith('image/')) return;
+
+  //   const reader = new FileReader();
+
+  //   reader.onload = function() {
+  //     const img = document.createElement('img');
+  //     img.src = reader.result;
+  //     img.style.maxWidth = '100%';
+  //     img.style.height = 'auto';
+
+  //     editor.appendChild(img);
+  //     editor.appendChild(document.createElement('p'));
+  //   };
+
+  //   reader.readAsDataURL(file);
+  // }
+
+  // editor.addEventListener('paste', function(e) {
+  //   const files = [...(e.clipboardData?.files || [])]
+  //     .filter(file => file.type.startsWith('image/'));
+
+  //   if (!files.length) return;
+
+  //   e.preventDefault();
+  //   files.forEach(insertImage);
+  // });
+
+  // editor.addEventListener('dragover', function(e) {
+  //   e.preventDefault();
+  //   e.dataTransfer.dropEffect = 'copy';
+  // });
+
+  // editor.addEventListener('drop', function(e) {
+  //   const files = [...(e.dataTransfer?.files || [])]
+  //     .filter(file => file.type.startsWith('image/'));
+
+  //   if (!files.length) return;
+
+  //   e.preventDefault();
+  //   e.stopPropagation();
+
+  //   files.forEach(insertImage);
+  // });
+  const editor = document.getElementById('book-editor');
+
+  editor.addEventListener('drop', function(e) {
+    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    if (!range) return;
+
+    e.preventDefault();
+
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const file = [...e.dataTransfer.files]
+      .find(f => f.type.startsWith('image/'));
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function() {
+      const img = document.createElement('img');
+      img.src = reader.result;
+      img.style.maxWidth = '100%';
+
+      range.deleteContents();
+      range.insertNode(img);
+    };
+
+    reader.readAsDataURL(file);
+  });
 }
 
 function CloseDocument() {
@@ -1873,14 +1955,14 @@ function SanitizeBookHTML(html) {
       'h1', 'h2', 'h3',
       'ul', 'ol', 'li',
       'blockquote', 'a',
-      'iframe', 'button'
+      'iframe', 'button', 'img'
     ],
     ALLOWED_ATTR: [
       'href', 'target', 'rel',
       'class', 'src', 'title',
       'allow', 'allowfullscreen',
       'contenteditable', 'referrerpolicy',
-      'type'
+      'type', 'alt', 'style'
     ]
   });
 }
@@ -2362,9 +2444,6 @@ function RenderGandalf() {
   }
 
   if (bumps) {
-    if (isMoving) {
-      view.wall_bump_sound.play()
-    }
     delete css.top
     delete css.left
     view.sprite.position = originalPosition
