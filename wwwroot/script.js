@@ -30,13 +30,28 @@ var events = {
   '#level-name:change': SerializeAndSaveLevelMetadata,
   '#level-name:keyup': SerializeAndSaveLevelMetadata,
 
-  '#upload-href:click': UploadImageFromUrl
+  '#upload-href:click': UploadImageFromUrl,
+
+  '#book-close:click': CloseDocument,
+  '#book-save:click': SaveDocument,
+  '#book-bold:click': () => FormatBook('bold'),
+  '#book-italic:click': () => FormatBook('italic'),
+  '#book-underline:click': () => FormatBook('underline'),
+  '#book-heading:click': () => FormatBook('formatBlock', 'h2'),
+  '#book-youtube:click': InsertBookYouTube,
+
+  '.book-video-remove:click': function(e) {
+    e.preventDefault();
+    e.target.closest('.book-video').remove();
+  },
 }
 
 var view = {
   dimension_x: 20,
   dimension_y: 20,
   blocks: {},
+  interactables: {},
+  interactions: new Set(),
   $height: $('#view').height(),
   $width: $('#view').width(),
   drop_area: {},
@@ -45,7 +60,8 @@ var view = {
   object_areas: [],
   wall_bump_sound: new Audio("/wall-bump-sound.mp3"),
   activity: {},
-  command: false,
+  on_document: false,
+  book: null,
   sprite: {
     name: 'Gandalf',
     el: undefined,
@@ -108,6 +124,32 @@ var control = {
 }
 
 var player = {}
+
+// (it's only responsibility is to update the view)
+//
+// view -> new view
+//
+// “The real voyage of discovery consists not in seeking new landscapes, but in having new eyes.”
+//     – Marcel Proust
+//
+function Reducer(action) {
+  switch (action.type) {
+  case 'document-interact_start':
+    view = {
+      ...view,
+      on_document: true
+    }
+    break;
+  case 'document-interact_end':
+    view = {
+      ...view,
+      on_document: false
+    }
+    break;
+  default:
+    view = view;
+  }
+}
 
 Array.prototype.contains = function(str) {
   for (var i = 0; i < this.length; i++) {
@@ -570,7 +612,7 @@ function RenderBlocks(blocks) {
     const baseY = Number(block.start_y);
 
     const originTile = document.getElementById(
-      `tile_${block.level_grid}_0-0`
+      `tile_${block.level_grid}__0-0`
     );
 
     if (!originTile) continue;
@@ -648,8 +690,6 @@ function RenderBlocks(blocks) {
 }
 
 
-
-
 function FinalizeBlocks() {
 
   // STEP 1: Calculate one z-index per logical block.
@@ -720,13 +760,11 @@ function FinalizeBlocks() {
   }
 }
 
-
-
 function LoadTiles(level_grid) {
   var view = document.getElementById('view')
   for (var i = 0; i < 400; i++) {
     var tile = document.createElement('div')
-    tile.id = `tile_${level_grid}_${ Math.floor(i / 20) }-${ i % 20 }`
+    tile.id = `tile_${level_grid}__${ Math.floor(i / 20) }-${ i % 20 }`
     tile.classList.add('tile')
     tile.classList.add('dev')
     MakeDroppable(tile)
@@ -1348,7 +1386,6 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
 }
 
 
-
 function IncludeObjectArea(block, row, col, repeatRow, repeatCol) {
   const [top, right, bottom, left] = (
     block.object_area_inclusions || '1 1 1 1'
@@ -1554,6 +1591,8 @@ function AddObjectAreaFromBoundaryId(boundary_tile_id) {
   });
 }
 
+
+
 function SelectBoundariesMousedown(event) {
   view.activity.click = true;
   if (!event.target.classList.contains("tile")) return
@@ -1601,52 +1640,36 @@ function SelectBoundariesMousemove(event) {
 }
 
 function KeyDown(event) {
-  view.activity[event.key] = true;
-  const eventKey = event.key.toLowerCase();
+  const key = event.key.toLowerCase();
 
-  if (view.sprite.key_values[eventKey]) {
-    view.sprite.keys.add(eventKey);
-    view.sprite.direction = eventKey.replace('arrow', '');
+  if (!view.book) {
+    view.sprite.keys.add(key);
   }
 
-  if (eventKey === 'shift') {
-    view.sprite.shift = true;
+  if (view.sprite.key_values[key]) {
+    view.sprite.direction = key.replace('arrow', '');
   }
 
-  if (eventKey == 'meta') {
-    view.command = true;
-  }
-
-  if (view.command && eventKey == 's') {
+  if (view.sprite.keys.has('meta') && eventKey == 's') {
     event.preventDefault()
-    // alert(JSON.stringify(player, null, 2))
     SaveGame()
   }
 }
 
+
 function KeyUp(event) {
-  delete view.activity[event.key];
-  const eventKey = event.key.toLowerCase();
+  const key = event.key.toLowerCase();
 
-  if (eventKey === 'shift') {
-    view.sprite.shift = false;
+  view.sprite.keys.delete(key);
+
+  const remaining = [...view.sprite.keys]
+    .filter(k => view.sprite.key_values[k]);
+
+  if (remaining.length) {
+    view.sprite.direction = remaining.at(-1).replace('arrow', '');
   }
 
-  if (eventKey == 'meta') {
-    view.command = false;
-  }
-
-  if (view.sprite.keys.has(eventKey)) {
-    view.sprite.keys.delete(eventKey);
-
-    const remainingKeys = Array.from(view.sprite.keys);
-    if (remainingKeys.length > 0) {
-      const lastKey = remainingKeys[remainingKeys.length - 1];
-      view.sprite.direction = lastKey.replace('arrow', '');
-    }
-  }
-
-  view.sprite.rotation[view.sprite.direction].index = 0
+  view.sprite.rotation[view.sprite.direction].index = 0;
 }
 
 function MouseUp(event) {
@@ -1668,6 +1691,228 @@ function MouseUp(event) {
   }
   control.removing_boundary_tile = false
 }
+
+
+
+function CloseDocument() {
+
+}
+
+function OpenDocument(blockId) {
+  if (document.querySelector('.book')) return;
+
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/document/" + encodeURIComponent(blockId));
+  xhr.setRequestHeader("Content-Type", "application/json");
+
+  xhr.addEventListener("load", function() {
+    if (this.status < 200 || this.status >= 300) {
+      console.error("Unable to load document:", this.responseText);
+      return;
+    }
+
+    const response = JSON.parse(this.response);
+    const book = response.data ?? response;
+
+    view.book = book;
+    view.book.blockId = blockId;
+
+    const div = document.createElement('div');
+    div.classList.add('book');
+    div.id = 'book::' + blockId;
+
+    div.innerHTML = `
+      <div class="book-panel">
+        <div class="book-header">
+          <span class="book-label">THE LIBRARY</span>
+          <button id="book-close" type="button">✕</button>
+        </div>
+
+        <input
+          id="book-title"
+          type="text"
+          placeholder="Untitled"
+        />
+
+        <div class="book-toolbar">
+          <button id="book-bold" type="button"><b>B</b></button>
+          <button id="book-italic" type="button"><i>I</i></button>
+          <button id="book-underline" type="button"><u>U</u></button>
+          <button id="book-heading" type="button">H2</button>
+          <button id="book-youtube" type="button">YouTube +</button>
+        </div>
+
+        <div
+          id="book-editor"
+          contenteditable="true"
+          spellcheck="true"
+          data-placeholder="Begin writing..."
+        ></div>
+
+        <div class="book-footer">
+          <span id="book-status">Ready</span>
+          <button id="book-save" type="button">Save document</button>
+        </div>
+      </div>
+    `;
+
+
+
+    document.body.appendChild(div);
+
+    document.getElementById('book-title').value = book.title ?? '';
+    document.getElementById('book-editor').innerHTML =
+      SanitizeBookHTML(book.content ?? '');
+
+    console.log(book.content, document.getElementById('book-editor').innerHTML)
+
+    AddEvents();
+
+    document.getElementById('book-editor').focus();
+  });
+
+  xhr.send();
+}
+
+function CloseDocument() {
+  document.querySelector('.book')?.remove();
+  view.book = null;
+}
+
+function FormatBook(command, value = null) {
+  const editor = document.getElementById('book-editor');
+  if (!editor) return;
+
+  editor.focus();
+  document.execCommand(command, false, value);
+}
+
+function GetYouTubeId(url) {
+  try {
+    const parsed = new URL(url);
+
+    const host = parsed.hostname.toLowerCase();
+
+    let id = null;
+
+    if (host === 'youtu.be' || host === 'www.youtu.be') {
+      id = parsed.pathname.split('/')[1];
+    } else if (
+      host === 'youtube.com' ||
+      host === 'www.youtube.com' ||
+      host === 'm.youtube.com'
+    ) {
+      if (parsed.pathname === '/watch') {
+        id = parsed.searchParams.get('v');
+      } else {
+        const match = parsed.pathname.match(
+          /^\/(?:embed|shorts|live)\/([^/]+)/
+        );
+        id = match?.[1];
+      }
+    }
+
+    return /^[a-zA-Z0-9_-]{11}$/.test(id ?? '') ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+function InsertBookYouTube() {
+  const url = prompt("Paste a YouTube URL:");
+  if (!url) return;
+
+  const id = GetYouTubeId(url);
+
+  if (!id) {
+    alert("Invalid YouTube URL.");
+    return;
+  }
+
+  const editor = document.getElementById('book-editor');
+
+  const video = document.createElement('div');
+  video.className = 'book-video';
+  video.contentEditable = 'true';
+
+  video.innerHTML = `
+    <button class="book-video-remove" type="button">×</button>
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/${id}"
+      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen>
+    </iframe>
+  `;
+
+  document.getElementById('book-editor').appendChild(video);
+
+  AddEvents('.book-video-remove')
+}
+
+function SanitizeBookHTML(html) {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'div', 'span',
+      'b', 'strong', 'i', 'em', 'u',
+      'h1', 'h2', 'h3',
+      'ul', 'ol', 'li',
+      'blockquote', 'a',
+      'iframe', 'button'
+    ],
+    ALLOWED_ATTR: [
+      'href', 'target', 'rel',
+      'class', 'src', 'title',
+      'allow', 'allowfullscreen',
+      'contenteditable', 'referrerpolicy',
+      'type'
+    ]
+  });
+}
+
+function SaveDocument() {
+  if (!view.book) return;
+
+  const blockId = view.book.id;
+  const title = document.getElementById('book-title').value;
+  const content = SanitizeBookHTML(
+    document.getElementById('book-editor').innerHTML
+  );
+
+  const xhr = new XMLHttpRequest();
+
+  xhr.open('POST', '/document/' + encodeURIComponent(blockId));
+  xhr.setRequestHeader('Content-Type', 'application/json');
+
+  document.getElementById('book-status').textContent = 'Saving...';
+
+  xhr.addEventListener('load', function() {
+    document.getElementById('book-status').textContent =
+      this.status >= 200 && this.status < 300
+        ? 'Saved'
+        : 'Unable to save';
+  });
+
+  xhr.addEventListener('error', function() {
+    document.getElementById('book-status').textContent = 'Unable to save';
+  });
+
+  xhr.send(JSON.stringify({ title, content }));
+}
+
+// function SaveDocument(blockId) {
+//   console.log('load book')
+//   var xhr = new XMLHttpRequest();
+//   xhr.open("POST", "/update/document/" + blockId);
+//   xhr.setRequestHeader("Content-Type", "application/json");
+//   xhr.addEventListener("load", function() {
+//     view.book = JSON.parse(this.response);
+//     console.log('-- loaded book', book)
+//     AddEvents()
+//   });
+//   xhr.send();
+// }
+
+
 
 function LoadSession(callback) {
   console.log('load session')
@@ -1708,7 +1953,7 @@ function LoadPlayerPostInitalFromServer(res) {
   player.level = res.data;
       
   try {
-    player.level.boundary_tile_ids = JSON.parse(player.level.boundary_tile_ids)
+    player.level.boundary_tile_ids = player.level.boundary_tile_ids == "" ? [] : JSON.parse(player.level.boundary_tile_ids)
     for (var id of player.level.boundary_tile_ids) {
       control.boundary_tile_ids.add(id)
     }
@@ -1900,20 +2145,56 @@ function UpdateInteractions() {
 
     for (const div of divs) {
       const distance = GetDistanceToElement(sprite, div);
+      let dir = [sprite.offsetLeft - div.offsetLeft > 0 ? 'left' : 'right', sprite.offsetTop - div.offsetTop > 0 ? 'up' : 'down']
 
       if (distance < nearestDistance) {
-        console.log(distance)
         nearestDistance = distance;
         nearest = div;
+        view.interactables[div.id] = dir;
         div.classList.add('interactable');
       } else {
+        delete view.interactables[div.id];
         div.classList.remove('interactable');
+      }
+    }
+  }
+
+  for (let id in view.interactables) {
+    if (view.interactables[id][0] == 'left' && view.sprite.direction == 'left') {
+      id = id.split('::')[0]
+      if (view.sprite.keys.has('addEventListener') && !view.interactions[id]) {
+        view.interactions[id] = view.blocks[id]
+        Interact(id);
+      } else if (!view.sprite.keys.has('addEventListener') && view.interactions[id]) {
+        delete view.interactions[id]
+      }
+    }
+
+    if (view.interactables[id][1] == 'up' && view.sprite.direction == 'up') {
+      id = id.split('::')[0]
+      if (view.sprite.keys.has('w') && !view.interactions[id]) {
+        view.interactions[id] = view.blocks[id]
+        Interact(id);
+      } else if (!view.sprite.keys.has('w') && view.interactions[id]) {
+        delete view.interactions[id]
       }
     }
   }
 
 
   updatingInteractions = false;
+}
+
+function Interact(id) {
+  switch (view.interactions[id].block.tag) {
+  case "book":
+    OpenDocument(id);
+    break;
+  default:
+    alert('interact with ' + id);
+    break;
+  }
+
 }
 
 
@@ -1944,13 +2225,25 @@ function InteractWithBlock(event) {
 var i = 0;
 function RenderGandalf() {
   let isMoving = false;
+  // we know he's not moving XD
+
   const originalPosition = Object.assign({}, view.sprite.position)
-  for (var key of view.sprite.keys) {
-    if (view.sprite.key_values[key]) {
-      isMoving = true;
-      for (var pos in view.sprite.key_values[key]) {
-        view.sprite.position[pos] += view.sprite.key_values[key][pos];
-      }
+  // where is gandalf? he's {} (here) now. let's call this "originalPosition"
+
+  const movementKeys = ["arrowup", "arrowdown", "arrowleft", "arrowright"];
+  // the right hand, in it's digital essence
+
+  const engageKeys = ["a", "s"]
+
+  for (const key of view.sprite.keys) {
+    const movement = view.sprite.key_values[key];
+
+    if (!movement) continue;
+
+    isMoving = true;
+
+    for (const pos in movement) {
+      view.sprite.position[pos] += movement[pos];
     }
   }
 
@@ -2034,7 +2327,7 @@ function RenderGandalf() {
         bumps = true
         $('#' + object_area.id).css('background', 'rgba(0,0,255,0.5)')
       } else {
-        // $('#' + object_area.id).css('background', 'rgba(255,0,0,0.5)')
+        $('#' + object_area.id).css('background', 'rgba(255,0,0,0.5)')
       }
       break;
     case "left":

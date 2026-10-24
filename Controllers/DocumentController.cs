@@ -16,26 +16,35 @@ namespace App.Controllers
             _documentServices = documentServices;
         }
 
-        [HttpPost("create")]
-        public async Task<IActionResult> Create(
+        [HttpPost("{blockId:guid}")]
+        public async Task<IActionResult> Save(
+            Guid blockId,
             [FromBody] SaveDocumentRequest request)
         {
             var userName = HttpContext.Session.GetString("name");
 
-            if (userName == null)
-                return Unauthorized(new { status = "error" });
+            if (string.IsNullOrEmpty(userName))
+                return Unauthorized();
 
             try
             {
-                var id = await _documentServices.Create(userName, request);
+                var id = await _documentServices.Save(
+                    blockId,
+                    userName,
+                    request);
 
-                return Ok(new { status = "success", id });
+                return Ok(new
+                {
+                    status = "success",
+                    id
+                });
             }
-            catch (InvalidOperationException e)
+            catch (InvalidOperationException ex)
             {
-                return BadRequest(new {
+                return BadRequest(new
+                {
                     status = "error",
-                    message = e.Message
+                    message = ex.Message
                 });
             }
         }
@@ -46,33 +55,14 @@ namespace App.Controllers
             var userName = HttpContext.Session.GetString("name");
 
             if (userName == null)
-                return Unauthorized(new { status = "error" });
+                return Unauthorized(new { status = "error", message = "Unauthorized user"  });
 
             var document = await _documentServices.Get(id, userName);
 
             if (document == null)
-                return NotFound(new { status = "error" });
+                return Ok(new { status = "success", data = new Document(id) });
 
             return Ok(new { status = "success", data = document });
-        }
-
-        [HttpPost("update/{id:guid}")]
-        public async Task<IActionResult> Update(
-            Guid id,
-            [FromBody] UpdateDocumentRequest request)
-        {
-            var userName = HttpContext.Session.GetString("name");
-
-            if (userName == null)
-                return Unauthorized(new { status = "error" });
-
-            var updated = await _documentServices.Update(
-                id, userName, request);
-
-            if (!updated)
-                return NotFound(new { status = "error" });
-
-            return Ok(new { status = "success" });
         }
 
         [HttpDelete("{id:guid}")]

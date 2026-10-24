@@ -8,6 +8,10 @@ namespace App.Models
         public string content { get; set; } = "";
         public DateTime created_at { get; set; }
         public DateTime updated_at { get; set; }
+
+        public Document(Guid id) {
+            this.id = id;
+        }
     }
 
     public class SaveDocumentRequest
