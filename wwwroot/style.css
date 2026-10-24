@@ -219,6 +219,13 @@ main {
 	overflow: auto;
 }
 
+#level-name {
+	font-family: cursive;
+	font-size: 3rem;
+	width: 100%;
+	text-align: left;
+}
+
 #boundary-tile-ids {
 	height: calc(90vh / 5);
 	overflow: auto;

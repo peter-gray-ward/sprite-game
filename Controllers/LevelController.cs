@@ -46,6 +46,7 @@ namespace App.Controllers
         [HttpPost("{levelId}")]
         public async Task<IActionResult> EditLevel(string levelId, [FromBody] Dictionary<string, JsonElement> levelData)
         {
+            Console.WriteLine("Editing level " + levelId);
             string? userName = HttpContext.Session.GetString("name");
 
             if (userName == null)

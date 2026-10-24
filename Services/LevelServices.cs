@@ -46,11 +46,13 @@ namespace App.Services
         {
             try
             {
+                Console.WriteLine("EditLevel(" + userName + ")");
                 using var connection = db.GetConnection();
                 await connection.OpenAsync();
                 var command = new NpgsqlCommand(@$"
                     UPDATE level
-                        set boundary_tile_ids = @boundary_tile_ids,
+                        set name = @name,
+                            boundary_tile_ids = @boundary_tile_ids,
                             exit_tile_map = @exit_tile_map
                     WHERE player_name = @player_name
                     AND id = @id
@@ -68,6 +70,16 @@ namespace App.Services
                 if (level.TryGetValue("exit_tile_map", out JsonElement exitTileMapElement))
                 {
                     command.Parameters.AddWithValue("exit_tile_map", exitTileMapElement.GetString() ?? string.Empty);
+                }
+
+                if (level.TryGetValue("name", out JsonElement nameElement))
+                {
+                    command.Parameters.AddWithValue("name", nameElement.GetString() ?? string.Empty);
+                }
+
+                if (level.TryGetValue("player_name", out JsonElement player_nameElement))
+                {
+                    command.Parameters.AddWithValue("player_name", player_nameElement.GetString() ?? string.Empty);
                 }
 
                 string id = string.Empty;
@@ -93,6 +105,7 @@ namespace App.Services
             }
             catch (Exception e)
             {
+                Console.WriteLine(e.Message);
                 return new ServiceResult("error: " + e.Message, e);
             }
         }

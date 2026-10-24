@@ -132,24 +132,39 @@ var player = {}
 // “The real voyage of discovery consists not in seeking new landscapes, but in having new eyes.”
 //     – Marcel Proust
 //
-function Reducer(action) {
-  switch (action.type) {
-  case 'document-interact_start':
-    view = {
-      ...view,
-      on_document: true
+// function Reducer(action) {
+//   switch (action.type) {
+//   case 'document-interact_start':
+//     view = {
+//       ...view,
+//       on_document: true
+//     }
+//     break;
+//   case 'document-interact_end':
+//     view = {
+//       ...view,
+//       on_document: false
+//     }
+//     break;
+//   default:
+//     view = view;
+//   }
+// }
+function cleanse(value) {
+  while (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      break;
     }
-    break;
-  case 'document-interact_end':
-    view = {
-      ...view,
-      on_document: false
-    }
-    break;
-  default:
-    view = view;
   }
+  return JSON.stringify(value);
 }
+
+function ParseJSON(req) {
+  return JSON.parse(cleanse(req));
+}
+
 
 Array.prototype.contains = function(str) {
   for (var i = 0; i < this.length; i++) {
@@ -205,7 +220,7 @@ function Logout() {
   xhr.open('POST', '/player/logout')
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
-    var res = JSON.parse(this.response)
+    var res = ParseJSON(this.response)
     if (res.status == 'success') {
       location.reload()
     }
@@ -244,7 +259,7 @@ function Pixabay(term, page) {
     xhr.open('GET', `https://pixabay.com/api/?key=25483695-93658ed46b8876fc2d6419379&q=${term}&per_page=25&image_type=${image_type}&page=${page}`)
     xhr.addEventListener('load', function() {
       try {
-        resolve(JSON.parse(this.response))
+        resolve(ParseJSON(this.response))
       } catch (error) {
         console.error(error)
       }
@@ -332,7 +347,7 @@ function _SaveImage(tag, url, callback) {
   xhr.addEventListener('load', function() {
     let res
     try {
-      res = JSON.parse(this.response)
+      res = ParseJSON(this.response)
     } catch (err) {
       console.error(err)
     }
@@ -452,7 +467,7 @@ function SaveBlocks() {
   xhr.addEventListener('load', function() {
     let res
     try {
-      res = JSON.parse(this.response)
+      res = ParseJSON(this.response)
     } catch (err) {
       console.error(err)
     }
@@ -477,7 +492,7 @@ function GetBlocks() {
   xhr.addEventListener("load", function() {
     let res
     try {
-      res = JSON.parse(this.response)
+      res = ParseJSON(this.response)
     } catch (err) {
       console.error(err)
     }
@@ -486,8 +501,8 @@ function GetBlocks() {
 
       control.needsUpdate = false
       var blocks = res.data.map(block => {
-        block.object_area = JSON.parse(block.object_area)
-        block.css = JSON.parse(block.css)
+        block.object_area = ParseJSON(block.object_area)
+        block.css = ParseJSON(block.css)
         if (!view.blocks[block.id]) {
           view.blocks[block.id]  = {
             block: block,
@@ -569,7 +584,7 @@ function ChangeGroundOrder(id, delta) {
   xhr.setRequestHeader('Content-Type', 'application/json');
 
   xhr.addEventListener('load', function() {
-    const res = JSON.parse(this.response);
+    const res = ParseJSON(this.response);
 
     if (res.status === 'success') {
       control.needsUpdate = true;
@@ -825,7 +840,7 @@ function LoadImageIds() {
   xhr.addEventListener('load', function() {
     let res
     try {
-      res = JSON.parse(this.response)
+      res = ParseJSON(this.response)
     } catch (err) {
       console.error(err)
     }
@@ -1087,9 +1102,9 @@ function UpdateBlock() {
   xhr.open('POST', `/blocks/update-object-area/${view.blocks[control.block_id].block.recurrence_id}`)
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
-    var res = JSON.parse(this.response)
+    var res = ParseJSON(this.response)
     if (res.status == 'success') {
-      var newObjectArea = JSON.parse(res.data)
+      var newObjectArea = ParseJSON(res.data)
       UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'object_area', newObjectArea)
       LoadView()
     }
@@ -1101,7 +1116,7 @@ function UpdateBlock() {
 
 function isValidJson(jsonString) {
     try {
-        JSON.parse(jsonString);
+        ParseJSON(jsonString);
         return true;
     } catch (e) {
         return false;
@@ -1152,7 +1167,7 @@ function ValidateBlockCSS() {
   var css = $("#block-css").val()
   if (!isValidJson(css)) {
     $("#block-css").addClass('invalid')
-  } else if (!isValidCSS(JSON.parse(css))) {
+  } else if (!isValidCSS(ParseJSON(css))) {
     $("#block-css").addClass('invalid')
   } else {
     $("#block-css").removeClass('invalid')
@@ -1163,7 +1178,7 @@ function ApplyBlockEdits() {
 
   // CSS
   if (!$("#block-css").hasClass('invalid')) {
-    var newCSS = JSON.parse($("#block-css").val());
+    var newCSS = ParseJSON($("#block-css").val());
     var biea = document.querySelector('#block-image')
     for (var key in newCSS) {
       if (key == 'transform') {
@@ -1212,7 +1227,7 @@ function ApplyBlockEdits() {
   xhr.addEventListener('load', function() {
     let res
     try {
-      res = JSON.parse(this.response)
+      res = ParseJSON(this.response)
       LoadView()
     } catch (err) {
       console.error(err)
@@ -1277,7 +1292,7 @@ function ChangeBlockPosition() {
   xhr.open("POST", "/blocks/update/" + block.recurrence_id)
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener('load', function() {
-    var res = JSON.parse(this.response);
+    var res = ParseJSON(this.response);
     if (res.status == 'success') {
       UpdateBlockCache(block.recurrence_id, edits)
       LoadView()
@@ -1544,12 +1559,13 @@ function ChangeOnlyBottomObjectAreas() {
 
 }
 
+
 function DeleteBlock() {
   var xhr = new XMLHttpRequest();
   xhr.open("DELETE", "/blocks/delete/" + view.blocks[control.block_id].block.recurrence_id);
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener("load", function() {
-    var res = JSON.parse(this.response);
+    var res = ParseJSON(this.response);
     if (res.status == 'success') {
       DeleteFromBlockCache(view.blocks[control.block_id].block.recurrence_id);
       DeselectBlock()
@@ -1680,7 +1696,7 @@ function MouseUp(event) {
     xhr.open("POST", "/level/" + player.level.id)
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.addEventListener("load", function() {
-      var res = JSON.parse(this.response);
+      var res = ParseJSON(this.response);
       if (res.status == 'success') {
         LoadView()
       }
@@ -1711,7 +1727,7 @@ function OpenDocument(blockId) {
       return;
     }
 
-    const response = JSON.parse(this.response);
+    const response = ParseJSON(this.response);
     const book = response.data ?? response;
 
     view.book = book;
@@ -1905,7 +1921,7 @@ function SaveDocument() {
 //   xhr.open("POST", "/update/document/" + blockId);
 //   xhr.setRequestHeader("Content-Type", "application/json");
 //   xhr.addEventListener("load", function() {
-//     view.book = JSON.parse(this.response);
+//     view.book = ParseJSON(this.response);
 //     console.log('-- loaded book', book)
 //     AddEvents()
 //   });
@@ -1920,7 +1936,7 @@ function LoadSession(callback) {
   xhr.open("GET", "/player/session");
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.addEventListener("load", function() {
-    session = JSON.parse(this.response);
+    session = ParseJSON(this.response);
     console.log('-- loaded session', session)
     callback();
   });
@@ -1953,7 +1969,7 @@ function LoadPlayerPostInitalFromServer(res) {
   player.level = res.data;
       
   try {
-    player.level.boundary_tile_ids = player.level.boundary_tile_ids == "" ? [] : JSON.parse(player.level.boundary_tile_ids)
+    player.level.boundary_tile_ids = player.level.boundary_tile_ids == "" ? [] : ParseJSON(player.level.boundary_tile_ids)
     for (var id of player.level.boundary_tile_ids) {
       control.boundary_tile_ids.add(id)
     }
@@ -2010,7 +2026,7 @@ function LoadData() {
       xhr.open("GET", "/level/" + player.level_id);
       xhr.setRequestHeader("Content-Type", "application/json");
       xhr.addEventListener("load", function() {
-        var res = JSON.parse(this.response)
+        var res = ParseJSON(this.response)
 
         if (res.status == 'success') {
           LoadLevel(res);
@@ -2044,10 +2060,11 @@ function SerializeAndSaveLevelMetadata() {
   xhr.open('POST', '/level/' + player.level.id);
   xhr.setRequestHeader("content-type", "application/json");
   xhr.addEventListener("load", function() {
-    var res = JSON.parse(this.response);
+    var res = ParseJSON(this.response);
     console.log("saved level", res);
   });
   var levelRequest = player.level;
+  levelRequest.player_name = player.name;
   levelRequest.name = document.getElementById('level-name').value; // vadefault
   levelRequest.boundary_tile_ids = JSON.stringify(levelRequest.boundary_tile_ids);
   xhr.send(JSON.stringify(levelRequest));
@@ -2074,7 +2091,7 @@ function SaveGame() {
       return;
     }
 
-    const res = JSON.parse(xhr.responseText);
+    const res = ParseJSON(xhr.responseText);
 
     if (res.status === 'success') {
       alert('Game saved');
