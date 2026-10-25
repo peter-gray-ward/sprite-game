@@ -183,7 +183,22 @@
                                 </div>
                             </section>
                             <section>
-                                <div id="block-image-edit-area">
+                                <div class="object-area-toolbar">
+                                      <label for="object-area-selection-mode">Selection mode</label>
+                                      <select id="object-area-selection-mode" aria-describedby="object-area-mode-help">
+                                          <option value="collision">Select Collision Area</option>
+                                          <option value="level">Select Level</option>
+                                      </select>
+                                      <div id="level-to">
+                                        <input type="text" id="level-to-name" placeholder="level-to name" />
+                                        <p id="level-to-err-message" style="color:red"></p>
+                                      </div>
+                                      <div class="object-area-toolbar-meta">
+                                          <span id="object-area-mode-help">Paint tiles that block player movement.</span>
+                                          <span id="object-area-selection-count">0 selected</span>
+                                      </div>
+                                  </div>
+                                  <div id="block-image-edit-area">
                                     <div id="block-image-container">
                                         <div id="block-image"></div>
                                     </div>

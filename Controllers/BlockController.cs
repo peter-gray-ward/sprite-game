@@ -52,6 +52,7 @@ namespace App.Controllers
         [HttpPost("update/{recurrenceId}")]
         public async Task<IActionResult> UpdateBlock(string recurrenceId, [FromBody] Block block)
         {
+            Console.WriteLine("..." + recurrenceId);
             string userName = HttpContext.Session.GetString("name") ?? string.Empty;
 
             if (block == null)

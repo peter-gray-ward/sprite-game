@@ -763,3 +763,61 @@ a.ui-button:active,
 
 
 
+
+/* Object-area editing: clear hierarchy, visible focus and distinct selection modes */
+#edit-block .inputs > section:last-child { min-height: 0; }
+.object-area-toolbar {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #e5edf5;
+  border-bottom: 1px solid #b8c7d6;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+.object-area-toolbar label { font-weight: 650; color: #273647; }
+#object-area-selection-mode {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  color: #192a3b;
+  background: #fff;
+  border: 1px solid #9baebf;
+  border-radius: 6px;
+  font: inherit;
+}
+.object-area-toolbar-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #485e72;
+  font-size: 11px;
+}
+#object-area-selection-count { white-space: nowrap; font-weight: 650; }
+#object-area-selection-mode:focus-visible,
+#edit-block button:focus-visible,
+#edit-block input:focus-visible {
+  outline: 2px solid #276bd4;
+  outline-offset: 2px;
+}
+#block-image-edit-area .object-area-preview {
+  cursor: crosshair;
+  transition: background-color .09s ease;
+}
+#block-image-edit-area .object-area-preview.other-selection:not(.selected) {
+  box-shadow: inset 0 0 0 2px rgba(245, 176, 66, .8);
+}
+#block-image-edit-area .object-area-preview.selected {
+  background: rgba(42, 99, 226, .58);
+  border-color: #c5d9ff;
+}
+#edit-block:has(#object-area-selection-mode option[value="level"]:checked)
+  #block-image-edit-area .object-area-preview.selected {
+  background: rgba(20, 165, 121, .62);
+  border-color: #b6f3df;
+}
+#edit-block .applications button {
+  min-height: 30px;
+  padding: 5px 12px;
+}
+#edit-block .applications button:hover { filter: brightness(.9); }

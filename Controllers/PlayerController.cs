@@ -106,6 +106,7 @@ namespace App.Controllers
             }
             catch (Exception e)
             {
+                Console.WriteLine(e.Message);
                 return StatusCode(500, new { status = "error", message = "Error", details = e.Message });
             }
         }
