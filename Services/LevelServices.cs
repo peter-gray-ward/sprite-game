@@ -13,33 +13,84 @@ namespace App.Services
     
         public async Task<ServiceResult> GetLevel(string userName, string levelId)
         {
-            try {
+            try
+            {
                 using var connection = db.GetConnection();
                 await connection.OpenAsync();
-                var command = new NpgsqlCommand(@$"
-                    SELECT l.id, l.boundary_tile_ids, l.name
-                    FROM level l
-                    INNER JOIN player p on (l.player_name = p.name)
-                    WHERE p.name = @user_name
-                    AND l.id = @level_id
+
+                bool isGuid = Guid.TryParse(levelId, out Guid parsedId);
+
+                var command = new NpgsqlCommand(@"
+                    SELECT id, boundary_tile_ids, name
+                    FROM level
+                    WHERE player_name = @user_name
+                      AND (
+                          (@is_guid AND id = @level_id)
+                          OR
+                          (NOT @is_guid AND name = @level_name)
+                      )
+                    LIMIT 1
                 ", connection);
+
                 command.Parameters.AddWithValue("user_name", userName);
-                command.Parameters.AddWithValue("level_id", Guid.Parse(levelId));
+                command.Parameters.AddWithValue("is_guid", isGuid);
+                command.Parameters.AddWithValue("level_id", isGuid ? parsedId : Guid.Empty);
+                command.Parameters.AddWithValue("level_name", levelId);
 
-                var reader = await command.ExecuteReaderAsync();
-
-                Level level = new();
-
-                if (await reader.ReadAsync())
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    level.name = reader["name"]?.ToString() ?? string.Empty;
-                    level.id = Guid.Parse(reader["id"]?.ToString() ?? Guid.Empty.ToString());
-                    level.boundary_tile_ids = reader["boundary_tile_ids"]?.ToString() ?? string.Empty;
+                    if (await reader.ReadAsync())
+                    {
+                        var level = new Level
+                        {
+                            id = reader.GetGuid(reader.GetOrdinal("id")),
+                            name = reader["name"]?.ToString() ?? "",
+                            boundary_tile_ids = reader["boundary_tile_ids"]?.ToString() ?? ""
+                        };
+
+                        return new ServiceResult("success", level);
+                    }
                 }
 
-                return new ServiceResult("success", level);
-            } catch (Exception ex) {
-                return new ServiceResult("ex " + ex.Message);
+                // A GUID must already exist.
+                if (isGuid)
+                    return new ServiceResult("error", "Level not found");
+
+                // A name can create a new level.
+                var newId = Guid.NewGuid();
+
+                using var insert = new NpgsqlCommand(@"
+                    INSERT INTO level (
+                        id,
+                        player_name,
+                        name,
+                        boundary_tile_ids
+                    )
+                    VALUES (
+                        @id,
+                        @user_name,
+                        @name,
+                        @boundary_tile_ids
+                    )
+                ", connection);
+
+                insert.Parameters.AddWithValue("id", newId);
+                insert.Parameters.AddWithValue("user_name", userName);
+                insert.Parameters.AddWithValue("name", levelId);
+                insert.Parameters.AddWithValue("boundary_tile_ids", "[]");
+
+                await insert.ExecuteNonQueryAsync();
+
+                return new ServiceResult("success", new Level
+                {
+                    id = newId,
+                    name = levelId,
+                    boundary_tile_ids = "[]"
+                });
+            }
+            catch (Exception ex)
+            {
+                return new ServiceResult("error", ex);
             }
         }
         public async Task<ServiceResult> EditLevel(string userName, Dictionary<string, JsonElement> level)

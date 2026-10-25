@@ -41,7 +41,8 @@ namespace App.Services
             context.Response.Cookies.Delete(".sprite-game.Session");
 		}
 
-		public void UpdateSession(HttpContext context, Player player) {
+		public void UpdateSession(HttpContext context, Player player) 
+		{
 			context.Session.SetString("access_token", player.access_token);
 			context.Session.SetString("name", player.name);
 			context.Session.SetString("level_id", player.level_id.ToString());
@@ -50,6 +51,11 @@ namespace App.Services
 			context.Session.SetString("position_x", player.position_x.ToString());
 			context.Session.SetString("position_y", player.position_y.ToString());
 			context.Session.SetString("level_grid", player.level_grid.ToString());
+		}
+
+		public void SetLevel(HttpContext context, string levelId)
+		{
+			context.Session.SetString("level_id", levelId);
 		}
 	}
 }

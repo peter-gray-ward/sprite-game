@@ -171,6 +171,7 @@ namespace App.Services
                         level_grid = @level_grid,
                         css = @css,
                         object_area_inclusions = @object_area_inclusions,
+                        object_area = @object_area,
                         tag = @tag
                     WHERE recurrence_id = @recurrence_id
                 ", connection);
@@ -189,6 +190,7 @@ namespace App.Services
                 command.Parameters.AddWithValue("level_id", block.level_id);
                 command.Parameters.AddWithValue("level_grid", block.level_grid);
                 command.Parameters.AddWithValue("ground", block.ground);
+                command.Parameters.AddWithValue("object_area", block.object_area);
                 command.Parameters.AddWithValue("tag", block.tag);
                 if (block.parent_id is not null)
                 {

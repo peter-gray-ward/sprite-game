@@ -10,10 +10,12 @@ namespace App.Controllers
     public class LevelController : ControllerBase
     {
         private readonly LevelServices _levelServices;
+        private readonly SessionServices _sessionServices;
 
-        public LevelController(LevelServices levelServices)
+        public LevelController(LevelServices levelServices, SessionServices sessionServices)
         {
             _levelServices = levelServices;
+            _sessionServices = sessionServices;
         }
 
         [HttpGet("{levelId}")]
@@ -28,14 +30,18 @@ namespace App.Controllers
 
             try
             {
-                ServiceResult level = await _levelServices.GetLevel(userName, levelId);
+                ServiceResult res = await _levelServices.GetLevel(userName, levelId);
 
-                if (level.exception != null)
+                Level level = (Level) res.data;
+
+                _sessionServices.SetLevel(HttpContext, level.id.ToString());
+
+                if (res.exception != null)
                 {
-                    return StatusCode(500, new { status = level.status, message = level.exception.Message });
+                    return StatusCode(500, new { status = res.status, message = res.exception.Message });
                 }
 
-                return Ok(new { status = "success", data = level.data });
+                return Ok(new { status = "success", data = level });
             }
             catch (Exception e)
             {

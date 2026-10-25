@@ -114,8 +114,13 @@ namespace App
 					    src BYTEA NOT NULL,
 					    user_name TEXT
 					);
+
+					CREATE UNIQUE INDEX IF NOT EXISTS level_player_name_unique
+					ON public.level (player_name, name);
 				", connection);
 				await command.ExecuteNonQueryAsync();
+
+
 
 				Console.WriteLine("schema edited!");
 			}

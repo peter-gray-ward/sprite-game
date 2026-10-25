@@ -153,7 +153,6 @@ const PlayerService = {
     xhr.send()
   },
   LoadSession: function(callback) {
-    console.log('load session')
     var xhr = new XMLHttpRequest();
     xhr.open("GET", "/player/session");
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -164,22 +163,38 @@ const PlayerService = {
     });
     xhr.send();
   },
-  EnterLevel: function(level_id) {
+  EnterLevel: function(level_id, initial = true) {
     console.log('load player callback')
+    if (/^000/.test(level_id)) {
+      alert('bad level id')
+      return;
+    }
     // level
     var xhr = new XMLHttpRequest();
     xhr.open("GET", "/level/" + level_id);
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.addEventListener("load", function() {
       var res = StringParser.ParseJSON(this.response)
-
+      console.log(res)
+      player.level_id = res.level_id
       if (res.status == 'success') {
-        LoadLevel(res);
+        control.needsUpdate = true
+        if (initial) {
+          PlayerService.LoadSession(() => {
+            LoadLevel(res);
+          })
+        } else {
+          PlayerService.SaveGame(() => {
+            PlayerService.LoadSession(() => {
+              LoadLevel(res);
+            })
+          });
+        }
       }
     });
     xhr.send();
   },
-  SaveGame: function() {
+  SaveGame: function(callback, show = false) {
     player.position_x = view.sprite.el.style.left.replace('px', '');
     player.position_y = view.sprite.el.style.top.replace('px', '');
     player.direction = view.sprite.direction;
@@ -201,15 +216,17 @@ const PlayerService = {
       const res = StringParser.ParseJSON(xhr.responseText);
 
       if (res.status === 'success') {
-        alert('Game saved');
+        if (show) alert('Game saved');
       } else {
         alert('Save failed:', res);
       }
+
+      if (callback && typeof callback == 'function') callback()
     });
 
     xhr.send(JSON.stringify({
       name: player.name,
-      level_id: player.level_id,
+      level_id: player.level.id,
       position_x: player.position_x,
       position_y: player.position_y,
       direction: player.direction,
@@ -423,7 +440,7 @@ const BlockService = {
     view.blocks = {}
     document.querySelectorAll('.block', function(elem) {
       element.remove()
-    })
+    });
     var xhr = new XMLHttpRequest();
     xhr.open("GET", '/blocks/get/' + player.level_id);
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -436,10 +453,14 @@ const BlockService = {
       }
       if (res.status == 'success') {
         console.log(res)
+        view.level_areas = [];
 
         control.needsUpdate = false
         var blocks = res.data.map(block => {
           block.object_area = NormalizeObjectArea(block.object_area)
+          if (block.object_area.level.length) {
+            view.level_areas = view.level_areas.concat(block.object_area.level)
+          }
           block.css = StringParser.ParseJSON(block.css)
           if (!view.blocks[block.id]) {
             view.blocks[block.id]  = {
@@ -463,7 +484,6 @@ const BlockService = {
       tag,
       document.getElementById('href-input').value,
       (e) => {
-        alert('finished saving ' + e)
         SelectTag({
           srcElement: {
             value: tag
@@ -564,6 +584,7 @@ const BlockService = {
     })
     let payload = Object.assign({}, view.blocks[control.block_id].block)
     payload.css = JSON.stringify(payload.css)
+    payload.level_grid = String(payload.level_grid);
     payload.object_area = JSON.stringify(NormalizeObjectArea(payload.object_area));
     if (payload.parent_id.length !== 36) {
       payload.parent_id = null;
@@ -587,15 +608,12 @@ const BlockService = {
       }
     });
     xhr.send(JSON.stringify({
+      ...block,
       ...edits,
-      dimension_x: block.dimension_x,
-      dimension_y: block.dimension_y,
-      repeat_x: block.repeat_x,
-      repeat_y: block.repeat_y,
-      dir_x: block.dir_x,
-      dir_y: block.dir_y,
-      css: JSON.stringify(block.css)
-    }))
+      level_grid: String(block.level_grid),
+      css: JSON.stringify(block.css),
+      object_area: JSON.stringify(block.object_area)
+    }));
   },
 
   OpenDocument: function(blockId, callback) {
@@ -646,11 +664,11 @@ const BlockController = {
         if (control.dragged_tile_id) {
           BlockController.ChangeBlockPosition()
           control.dragged_tile_id = null
-        } else if (control.image_id && !control.image_id == "") {
-          SaveBlocks()
+        } else if (control.image_id) {
+          BlockService.SaveBlocks()
         } else {
-          SaveImage(null, function() {
-            SaveBlocks()
+          BlockService.SaveImage(null, function() {
+            BlockService.SaveBlocks()
           })
         }
 
@@ -666,8 +684,13 @@ const BlockController = {
         const xDir = Math.abs(Math.floor($(".x-dir").val()))
         const yDir = Math.abs(Math.floor($(".y-dir").val()))
 
-        var id = event.target.id.replace('tile_', '').split("_")
-        id[1] = id[1].split("-").map(Number);
+        const match = event.target.id.match(/^tile_(.*?)__(\d+)-(\d+)$/);
+        if (!match) return;
+
+        const id = [
+          match[1],
+          [Number(match[2]), Number(match[3])]
+        ];
 
         $('#tile-over-id').html(event.target.id)
 
@@ -1161,7 +1184,7 @@ var events = {
   '#view-object-areas:change': ChangeViewObjectAreas,
   '#object-area-selection-mode:change': ObjectAreaSelectionModeChanged,
 
-  '#view-debug-areas:change': ChangeViewDebugAreas,
+  '#view-level-areas:change': ChangeViewLevelAreas,
   '#delete-block:click': BlockService.DeleteBlock,
   // '.tile:click': DeselectBlock,
   '#manage-blocks .tbody .tr:mouseover': MouseOverBlockRow,
@@ -1285,7 +1308,7 @@ function SaveObjectAreaSelection() {
   area[mode] = Array.from(document.querySelectorAll('#block-image-edit-area .object-area-preview.selected'))
     .map(el => el.id.replace('object-area-', '').split('_').map(Number));
   control.object_area_preview.object_area = area;
-  UpdateBlock();
+  BlockService.UpdateBlock();
 }
 
 
@@ -1433,14 +1456,18 @@ function FinalizeBlocks() {
 }
 
 function LoadTiles(level_grid) {
-  var view = document.getElementById('view')
-  for (var i = 0; i < 400; i++) {
-    var tile = document.createElement('div')
-    tile.id = `tile_${level_grid}__${ Math.floor(i / 20) }-${ i % 20 }`
-    tile.classList.add('tile')
-    tile.classList.add('dev')
-    BlockController.MakeDroppable(tile)
-    view.appendChild(tile)
+  const container = document.getElementById('view');
+
+  $('.tile').droppable('destroy').remove();
+
+  for (let i = 0; i < 400; i++) {
+    const tile = document.createElement('div');
+
+    tile.id = `tile_${level_grid}__${Math.floor(i / 20)}-${i % 20}`;
+    tile.classList.add('tile', 'dev');
+
+    container.appendChild(tile);
+    BlockController.MakeDroppable(tile);
   }
 }
 
@@ -1672,6 +1699,43 @@ function AddObjectAreas() {
   FinalizeBlocks();
 }
 
+function AddLevelAreas() {
+  view.object_areas = [];
+  $('.level-area').remove();
+
+  if (player.level?.boundary_tile_ids) {
+    for (const id of player.level.boundary_tile_ids) {
+      AddLevelAreaFromBoundaryId(id);
+    }
+  }
+
+  for (const { block, divs } of Object.values(view.blocks)) {
+    divs.forEach((div, index) => {
+      const renderedBlock = {
+        ...block,
+        start_x: Number(div.dataset.startX),
+        start_y: Number(div.dataset.startY)
+      };
+
+      const width = div.offsetWidth;
+      const height = div.offsetHeight;
+      const top = div.offsetTop;
+      const left = div.offsetLeft;
+
+      CreateAndAddBlockArea(
+        renderedBlock,
+        top,
+        left,
+        width,
+        height,
+        index
+      );
+    });
+  }
+
+  FinalizeBlocks();
+}
+
 function GetBlockDimensions(block) {
   var startTile = document.getElementById(`tile_${block.level_grid}_${block.start_y}-${block.start_x}`);
 
@@ -1718,17 +1782,18 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
 }
 
 
-function IncludeObjectArea(block, row, col, repeatRow, repeatCol) {
+function IncludeObjectArea(block, row, col, repeatRow, repeatCol, mode = 'collision') {
   const [top, right, bottom, left] = (
     block.object_area_inclusions || '1 1 1 1'
   ).split(' ').map(Number);
 
   if (top && right && bottom && left) return true;
 
-  if (!ObjectAreaCells(block).length) return false;
+  const cells = ObjectAreaCells(block, mode, 'collision').concat(ObjectAreaCells(block, mode, 'level'));
+  if (!cells.length) return false;
 
-  const rows = ObjectAreaCells(block).map(pair => pair[0]);
-  const cols = ObjectAreaCells(block).map(pair => pair[1]);
+  const rows = cells.map(pair => pair[0]);
+  const cols = cells.map(pair => pair[1]);
 
   const minRow = Math.min(...rows);
   const maxRow = Math.max(...rows);
@@ -1771,7 +1836,6 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     skewY: 0
   };
   const repeatX = Number(block.repeat_x);
-
   const repeatRow = Math.floor(index / repeatX);
   const repeatCol = index % repeatX;
 
@@ -1812,9 +1876,10 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
   const segmentX = (width * transform.scale) / 7;
   const segmentY = (height * transform.scale) / 7;
   var viewElement = document.getElementById('view')
-  for (var object_area of ObjectAreaCells(block)) {
 
-    
+
+  // collision
+  for (var object_area of ObjectAreaCells(block)) {
 
     var objectAreaId = `object-area-${block.id}-${object_area[0]}_${object_area[1]}__${index}`;
     var objectArea = document.createElement('div');
@@ -1834,30 +1899,77 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     });
 
 
-    if (!IncludeObjectArea(
+
+
+    if (IncludeObjectArea(
       block,
       object_area[0],
       object_area[1],
       repeatRow,
       repeatCol
     )) {
+      view.object_areas.push({
+        block_id: block.id,
+        id: objectAreaId,
+        top: newTop,
+        left: newLeft,
+        width: segmentX,
+        height: segmentY
+      });
+
+
+      if (view.view_block_areas) {
+        viewElement.appendChild(objectArea);
+      }
+    }
+    
+  }
+  // level
+  for (var level_area of ObjectAreaCells(block, 'level')) {
+    console.log(level_area)
+    var levelAreaId = `level-area-${block.id}-${level_area[0]}_${level_area[1]}__${index}`;
+    var levelArea = document.createElement('div');
+    levelArea.classList.add('level-area');
+    levelArea.id = levelAreaId;
+
+    var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5, block.translate_object_area, units)
+    newTop += segmentY * level_area[0];
+    newLeft += segmentX * level_area[1];
+
+    $(levelArea).css({
+      width: segmentX + 'px',
+      height: segmentY + 'px',
+      top: newTop + 'px',
+      left: newLeft + 'px'
+    });
+
+
+    if (!IncludeObjectArea(
+      block,
+      level_area[0],
+      level_area[1],
+      repeatRow,
+      repeatCol
+    )) {
       continue;
     }
 
+    console.log(levelArea)
 
-    view.object_areas.push({
+    if (view.view_level_areas) {
+      viewElement.appendChild(levelArea);
+    }
+
+
+    view.level_areas.push({
       block_id: block.id,
-      id: objectAreaId,
+      id: levelAreaId,
+      destination: level_area[2],
       top: newTop,
       left: newLeft,
       width: segmentX,
       height: segmentY
     });
-
-
-    if (view.view_block_areas) {
-      viewElement.appendChild(objectArea);
-    }
   }
 }
 
@@ -1867,9 +1979,10 @@ function ChangeViewObjectAreas() {
   AddObjectAreas()
 }
 
-function ChangeViewDebugAreas() {
-  var doView = $('#view-debug-areas').is(':checked')
-  view.view_debug_areas = doView;
+function ChangeViewLevelAreas() {
+  var doView = $('#view-level-areas').is(':checked')
+  view.view_level_areas = doView;
+  AddLevelAreas()
 }
 
 function ChangeOnlyBottomObjectAreas() {
@@ -2226,10 +2339,12 @@ function LoadPlayerPostInitalFromServer(res) {
 
 function LoadLevel(res) {
   console.log('load level')
+  player.level_id = res.data.id
   LoadPlayerPostInitalFromServer(res)
   LoadTiles(player.level_grid)
 
   var biea = document.getElementById('block-image-edit-area')
+  biea.querySelectorAll('.object-area-preview').forEach(el => el.remove())
   for (var i = 0; i < 49; i++) {
     var object_area_preview = document.createElement('div')
     object_area_preview.classList.add('object-area-preview')
@@ -2461,7 +2576,7 @@ function RenderGandalf() {
   var css = {
     background: `url(/Gandalf.png) no-repeat`,
     backgroundSize: `auto ${scaledImageHeight}vh`,
-    backgroundPosition: i % 8 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
+    backgroundPosition: i % 5 === 0 ? `${backgroundX} ${backgroundY}` : $("#gandalf").css("background-position"),
     width: `${sprite$viewHeight}vh`, // Ensure sprite section matches 9vh
     height: `${sprite$viewHeight}vh`,
     top: view.sprite.position.top * view.$height,
@@ -2532,7 +2647,7 @@ function RenderGandalf() {
     for (const area of levelAreas) {
       if (touches(area)) {
         view.active_level_trigger = area.block_id;
-        PlayerService.EnterLevel(area.block_id);
+        PlayerService.EnterLevel(area.destination, false);
         break;
       }
     }
