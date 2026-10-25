@@ -164,7 +164,6 @@ const PlayerService = {
     xhr.send();
   },
   EnterLevel: function(level_id, initial = true) {
-    console.log('load player callback')
     if (/^000/.test(level_id)) {
       alert('bad level id')
       return;
@@ -577,13 +576,14 @@ const BlockService = {
       let res
       try {
         res = StringParser.ParseJSON(this.response)
+        control.needsUpdate = true
         LoadView()
       } catch (err) {
         console.error(err)
       }
     })
     let payload = Object.assign({}, view.blocks[control.block_id].block)
-    payload.css = JSON.stringify(payload.css)
+    payload.css = JSON.stringify(JSON.parse(document.getElementById('block-css').value))
     payload.level_grid = String(payload.level_grid);
     payload.object_area = JSON.stringify(NormalizeObjectArea(payload.object_area));
     if (payload.parent_id.length !== 36) {
@@ -775,7 +775,19 @@ const BlockController = {
   RenderBlocks: function(blocks) {
     const viewElement = document.getElementById('view');
 
+
+
     for (const block of blocks) {
+      control.image_sizes ??= {};
+      if (!control.image_sizes[block.image_id]) {
+        const im = new Image();
+        im.onload = () => {
+          control.image_sizes[block.image_id] = { w: im.naturalWidth, h: im.naturalHeight };
+          AddObjectAreas();
+        };
+        im.src = `/image/${block.image_id}`;
+      }
+
       const transform = String(block.css.transform ?? '');
       const scale = Number(
         transform.match(/scale\(\s*([+-]?(?:\d+\.?\d*|\.\d+))/)?.[1] ?? 1
@@ -1703,13 +1715,21 @@ function AddObjectAreas() {
       const top = div.offsetTop;
       const left = div.offsetLeft;
 
+
+
+      const img = control.image_sizes?.[block.image_id];
+      const aspect = img ? img.w / img.h : width / height;
+
+
       CreateAndAddBlockArea(
         renderedBlock,
         top,
         left,
         width,
         height,
-        index
+        index,
+        img,
+        aspect
       );
     });
   }
@@ -1740,13 +1760,18 @@ function AddLevelAreas() {
       const top = div.offsetTop;
       const left = div.offsetLeft;
 
+      const img = control.image_sizes?.[block.image_id];
+      const aspect = img ? img.w / img.h : width / height;
+
       CreateAndAddBlockArea(
         renderedBlock,
         top,
         left,
         width,
         height,
-        index
+        index,
+        img,
+        aspect
       );
     });
   }
@@ -1780,6 +1805,7 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
   // Calculate the apparent shift due to scaling
   const offsetLeft = (transform.scale - 1) * width * originX;
   const offsetTop = (transform.scale - 1) * height * originY;
+
 
   for (var transformation in transform) {
     switch (units[transformation]) {
@@ -1841,7 +1867,7 @@ function IncludeObjectArea(block, row, col, repeatRow, repeatCol, mode = 'collis
 }
 
 
-function CreateAndAddBlockArea(block, top, left, width, height, index) {
+function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspect) {
   var _transform = block.css.transform ?? 1;
   var transform = {
     scale: 1,
@@ -1857,8 +1883,8 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
   const repeatRow = Math.floor(index / repeatX);
   const repeatCol = index % repeatX;
 
-  if (typeof _transform === "number" || !isNaN(Number(_transform))) {
-    transform.scale = Number(_transform);
+  if (_transform && typeof _transform === "number" || !isNaN(Number(_transform))) {
+    // transform.scale = Number(_transform);
   } else {
     const regex = /([a-zA-Z]+)\(([^)]*)\)/g;
 
@@ -1891,11 +1917,16 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     }
     transform[match[1]] = +match[2].replace(unitRegex, '');
   }
-  const segmentX = (width * transform.scale) / 7;
-  const segmentY = (height * transform.scale) / 7;
+
+  const fx = aspect < 1 ? aspect : 1;
+  const fy = aspect > 1 ? 1 / aspect : 1;
+  const padX = (7 * (1 - fx)) / 2;
+  const padY = (7 * (1 - fy)) / 2;
+  const segmentX = (width * transform.scale) / (7 * fx);
+  const segmentY = (height * transform.scale) / (7 * fy);
   var viewElement = document.getElementById('view')
 
-
+  if (block.id == '010e33e8-646f-471d-ae39-c2ac8a5db054') console.log(block, transform)
   // collision
   for (var object_area of ObjectAreaCells(block)) {
 
@@ -1903,11 +1934,10 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     var objectArea = document.createElement('div');
     objectArea.classList.add('object-area');
     objectArea.id = objectAreaId;
-
     
     var { newLeft, newTop } = calculateAbsoluteOffsets(left, top, width, height, transform, 0.5, 0.5, block.translate_object_area, units)
-    newTop += segmentY * object_area[0];
-    newLeft += segmentX * object_area[1];
+    newTop += segmentY * (object_area[0] - padY);
+    newLeft += segmentX * (object_area[1] - padX);
 
     $(objectArea).css({
       width: segmentX + 'px',
@@ -1915,9 +1945,6 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
       top: newTop + 'px',
       left: newLeft + 'px'
     });
-
-
-
 
     if (IncludeObjectArea(
       block,
@@ -1934,8 +1961,6 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
         width: segmentX,
         height: segmentY
       });
-
-
       if (view.view_block_areas) {
         viewElement.appendChild(objectArea);
       }
@@ -1944,7 +1969,6 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
   }
   // level
   for (var level_area of ObjectAreaCells(block, 'level')) {
-    console.log(level_area)
     var levelAreaId = `level-area-${block.id}-${level_area[0]}_${level_area[1]}__${index}`;
     var levelArea = document.createElement('div');
     levelArea.classList.add('level-area');
@@ -1990,12 +2014,14 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
 }
 
 function ChangeViewObjectAreas() {
+  $('.level-area, .object-area').remove()
   var doView = $('#view-object-areas').is(':checked')
   view.view_block_areas = doView;
   AddObjectAreas()
 }
 
 function ChangeViewLevelAreas() {
+  $('.level-area, .object-area').remove()
   var doView = $('#view-level-areas').is(':checked')
   view.view_level_areas = doView;
   AddLevelAreas()
@@ -2358,6 +2384,9 @@ function LoadLevel(res) {
   player.level_id = res.data.id
   LoadPlayerPostInitalFromServer(res)
   LoadTiles(player.level_grid)
+
+
+  $('.level-area, .object-area').remove()
 
   var biea = document.getElementById('block-image-edit-area')
   biea.querySelectorAll('.object-area-preview').forEach(el => el.remove())
