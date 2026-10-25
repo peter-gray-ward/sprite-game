@@ -1231,7 +1231,15 @@ const BlockController = {
       .map(l => {
         l[4] = flipX
         l[5] = flipY
-        console.log(l)
+        return l
+      });
+  },
+
+  UpdateLevelDirection: function() {
+    var direction = $('#level-direction').val()
+    view.blocks[control.block_id].block.object_area.level = view.blocks[control.block_id].block.object_area.level
+      .map(l => {
+        l[6] = direction
         return l
       });
   }
@@ -1289,6 +1297,7 @@ var events = {
 
   '#level-flip-y:change': BlockController.UpdateLevelFlip,
   '#level-flip-x:change': BlockController.UpdateLevelFlip,
+  '#level-direction:change': BlockController.UpdateLevelDirection,
 }
 
 function AddEvents(selector) {
@@ -1361,11 +1370,15 @@ function RenderObjectAreaSelection() {
       : 'Paint tiles reserved for changing levels (transition behavior comes next).';
   if (isCollision == false) {
     document.getElementById('level-to').style.display = 'flex';
+    document.querySelector('.level-direction').style.display = 'flex'
 
     $('#level-flip-x').prop("checked", selectedBlock.object_area.level[0][4])
     $('#level-flip-y').prop("checked", selectedBlock.object_area.level[0][5])
+
+    $('#level-direction').val(area.level[0][6])
   } else {
     document.getElementById('level-to').style.display = 'none';
+    document.querySelector('.level-direction').style.display = 'none'
   }
 }
 
@@ -1742,6 +1755,7 @@ function isOverlappedByGround(element) {
 
 function AddObjectAreas() {
   view.object_areas = [];
+  view.level_areas = []
   $('.object-area').remove();
 
   if (player.level?.boundary_tile_ids) {
@@ -2059,7 +2073,8 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
       width: segmentX,
       height: segmentY,
       flipX: level_area[4],
-      flipY: level_area[5]
+      flipY: level_area[5],
+      direction: level_area[6]
     });
   }
 }
@@ -2756,7 +2771,7 @@ function RenderGandalf() {
 
   if (isMoving && !view.transitioning && !view.active_level_trigger) {
     for (const area of levelAreas) {
-      if (touches(area)) {
+      if (touches(area) && view.sprite.direction == area.direction) {
         view.active_level_trigger = area.block_id;
         PlayerService.EnterLevel(area.destination, false, area.flipX, area.flipY);
         break;
