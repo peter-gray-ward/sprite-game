@@ -291,7 +291,7 @@ const BlockService = {
       xhr.open('GET', `https://pixabay.com/api/?key=25483695-93658ed46b8876fc2d6419379&q=${term}&per_page=25&image_type=${image_type}&page=${page}`)
       xhr.addEventListener('load', function() {
         try {
-          resolve(ParseJSON(this.response))
+          resolve(StringParser.ParseJSON(this.response))
         } catch (error) {
           console.error(error)
         }
@@ -313,7 +313,7 @@ const BlockService = {
       }
       var term = elem.value
       var page = elem.dataset.page
-      Pixabay(term, page).then(json => {
+      BlockService.Pixabay(term, page).then(json => {
         var hits = []
         for (var i = 0; i < json.hits.length; i++) {
           if (!BlockService.urls[json.hits[i].largeImageURL]) {
@@ -334,7 +334,7 @@ const BlockService = {
       const scrollableElement = event.target;
       const isAtBottom = scrollableElement.scrollHeight - scrollableElement.scrollTop <= scrollableElement.clientHeight + .5;
       if (isAtBottom) {
-        SearchPixabay(null, false);
+        BlockService.SearchPixabay(null, false);
       }
     }
   },
@@ -350,7 +350,7 @@ const BlockService = {
         console.error(err)
       }
       if (res.status == 'success') {
-        LoadImageIds();
+        BlockService.LoadImageIds();
         control.image_id = res.id
         if (event) {
           $(event.srcElement).addClass('saved')
@@ -369,7 +369,7 @@ const BlockService = {
     var tag = event ? event.srcElement.dataset.tag : $("#pixabay-search").val()
     var url = event ? event.srcElement.style.background.replace('url(', '').replace(')', '').replaceAll("'", '').replaceAll('"', '') : control.pixabay_url
     
-    BlockService._SaveImage(tag, url);
+    BlockService._SaveImage(tag, url, callback);
   },
   DeleteBlock: function() {
     var xhr = new XMLHttpRequest();
@@ -851,6 +851,7 @@ const BlockController = {
 
           div.dataset.id = block.id;
           div.addEventListener('click', InteractWithBlock);
+          div.addEventListener('click', BlockController.SelectBlock);
           div.dataset.recurrence_id = block.recurrence_id;
 
           div.dataset.startX = x;
@@ -1040,6 +1041,23 @@ const BlockController = {
 
   SelectBlock: function(event) {
     console.log('SelectBlock', event.srcElement)
+    const blockId = event.currentTarget?.dataset?.id
+      || event.srcElement?.dataset?.id;
+
+    if (control.selecting_parent_id) {
+      if (!blockId) return;
+
+      $("#parent-id").html(blockId);
+      control.selecting_parent_id = false;
+
+      $("#select-parent-id").css({
+        background: 'slategray',
+        color: 'lawngreen'
+      });
+
+      return;
+    }
+
     var id;
 
     if (event.srcElement.id) {
@@ -1953,8 +1971,6 @@ function CreateAndAddBlockArea(block, top, left, width, height, index) {
     )) {
       continue;
     }
-
-    console.log(levelArea)
 
     if (view.view_level_areas) {
       viewElement.appendChild(levelArea);
