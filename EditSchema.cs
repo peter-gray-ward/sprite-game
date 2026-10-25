@@ -63,6 +63,7 @@ namespace App
 						object_area TEXT,
 						translate_object_area INT NOT NULL,
 						object_area_inclusions TEXT NOT NULL,
+						level_area_inclusions TEXT NOT NULL,
 						random_rotation INT NOT NULL,
 						ground INT NOT NULL,
 						parent_id UUID

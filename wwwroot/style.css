@@ -596,11 +596,11 @@ a.ui-button:active,
 }
 
 .level-area {
-	background: rgba(0, 0, 255, 0.333);
+	background: rgba(20, 165, 121, .62);
 }
 
 .object-area.colliding {
-  background: rgba(0, 0, 255, 0.333);
+  background: rgba(20, 165, 121, .92);
 }
 
 .level-area.colliding {
@@ -609,6 +609,14 @@ a.ui-button:active,
 
 .object-area:not(.colliding) {
   background: rgba(255, 0, 0, 0.333);
+}
+
+.check-vertical {
+	display: flex;
+	flex-direction: column;
+	flex-grow: 1;
+	align-items: center;
+	justify-content: center;
 }
 
 .form-div {

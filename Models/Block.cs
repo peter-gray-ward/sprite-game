@@ -20,6 +20,7 @@ namespace App.Models
         public string object_area { get; set; } = "[]";
         public int translate_object_area { get; set; } = 0;
         public string object_area_inclusions { get; set; } = "1 1 1 1";
+        public string level_area_inclusions { get; set; } = "1 1 1 1";
         public int random_rotation { get; set; } = 0;
         public int ground { get; set; } = 0;
         public Guid? parent_id { get; set; } = null;

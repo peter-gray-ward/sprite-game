@@ -163,7 +163,7 @@ const PlayerService = {
     });
     xhr.send();
   },
-  EnterLevel: function(level_id, initial = true) {
+  EnterLevel: function(level_id, initial = true, flipX = false, flipY = false) {
     if (/^000/.test(level_id)) {
       alert('bad level id')
       return;
@@ -174,7 +174,7 @@ const PlayerService = {
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.addEventListener("load", function() {
       var res = StringParser.ParseJSON(this.response)
-      console.log(res)
+
       player.level_id = res.level_id
       if (res.status == 'success') {
         control.needsUpdate = true
@@ -185,7 +185,7 @@ const PlayerService = {
         } else {
           PlayerService.SaveGame(() => {
             PlayerService.LoadSession(() => {
-              LoadLevel(res);
+              LoadLevel(res, flipX, flipY);
             })
           });
         }
@@ -569,6 +569,7 @@ const BlockService = {
     }));
   },
   ApplyBlockEdits: function() {
+    let payload = Object.assign({}, view.blocks[control.block_id].block)
     var xhr = new XMLHttpRequest()
     xhr.open('POST', `/blocks/update/${view.blocks[control.block_id].block.recurrence_id}`)
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -576,16 +577,19 @@ const BlockService = {
       let res
       try {
         res = StringParser.ParseJSON(this.response)
+
+        console.log(res, payload)
         control.needsUpdate = true
         LoadView()
       } catch (err) {
         console.error(err)
       }
     })
-    let payload = Object.assign({}, view.blocks[control.block_id].block)
     payload.css = JSON.stringify(JSON.parse(document.getElementById('block-css').value))
     payload.level_grid = String(payload.level_grid);
     payload.object_area = JSON.stringify(NormalizeObjectArea(payload.object_area));
+    payload.level_area = JSON.stringify(NormalizeObjectArea(payload.level_area));
+
     if (payload.parent_id.length !== 36) {
       payload.parent_id = null;
     }
@@ -898,6 +902,7 @@ const BlockController = {
 
     BlockService.ChangeGroundOrder(block)
   },
+
   ApplyBlockEdits: function() {
     // CSS
     if (!$("#block-css").hasClass('invalid')) {
@@ -938,6 +943,12 @@ const BlockController = {
         })
         .get()
         .join(' '),
+      'level_area_inclusions': $('#level-area-inclusions input')
+        .map(function() {
+          return $(this).is(':checked') ? '1' : '0';
+        })
+        .get()
+        .join(' '),
       'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0,
       'ground': $('#ground').is(':checked') ? 1 : 0,
       'parent_id': $("#parent-id").html(),
@@ -945,7 +956,6 @@ const BlockController = {
     });
 
     BlockService.ApplyBlockEdits()
-  
   },
 
   AdjustEditBlockImage: function() {
@@ -1046,9 +1056,7 @@ const BlockController = {
       EnableBookImages();
 
       document.getElementById('book-editor').focus();
-    })
-
-    
+    })   
   },
 
   SelectBlock: function(event) {
@@ -1129,11 +1137,20 @@ const BlockController = {
     $("#block-type-edit #random-rotation").prop('checked', block.random_rotation > 0)
     $("#block-type-edit #ground").prop('checked', block.ground > 0)
     $("#parent-id").html(block.parent_id)
-    const inclusions = (
+    
+    let inclusions = (
       block.object_area_inclusions || '1 1 1 1'
     ).split(' ');
 
     $('#object-area-inclusions input').each(function(index) {
+      $(this).prop('checked', inclusions[index] === '1');
+    });
+
+    inclusions = (
+      block.level_area_inclusions || '1 1 1 1'
+    ).split(' ');
+
+    $('#level-area-inclusions input').each(function(index) {
       $(this).prop('checked', inclusions[index] === '1');
     });
 
@@ -1149,6 +1166,8 @@ const BlockController = {
     $('#block-css').val(JSON.stringify(css, null, 1))
 
     css.backgroundImage = `url(/image/${view.blocks[control.block_id].block.image_id})`;
+    css.backgroundPosition = '50% 50%'
+    css.backgroundSize  = 'contain'
     css.transform = ''//css.transform.replace(/scale\(\d+(\.\d+)?\)/, '')
 
     if (css.transform) {
@@ -1191,11 +1210,30 @@ const BlockController = {
     $('#block-css').html('')
   },
 
-  UpdateLevelTo: function(event) {
-    var name = event.srcElement.value;
-    for (let level_area of view.blocks[control.block_id].block.object_area.level) {
-      level_area[2] = name;
+  UpdateLevelTo: function() {
+    const name = document.getElementById('level-to-name').value.trim();
+
+    if (!name || name === 'on') return;
+
+    const block = view.blocks[control.block_id]?.block;
+    if (!block) return;
+
+    for (const levelArea of block.object_area.level) {
+      levelArea[2] = name;
     }
+  },
+
+  UpdateLevelFlip: function() {
+    var flipY = $('#level-flip-y').is(':checked');
+    var flipX = $('#level-flip-x').is(':checked');
+
+    view.blocks[control.block_id].block.object_area.level = view.blocks[control.block_id].block.object_area.level
+      .map(l => {
+        l[4] = flipX
+        l[5] = flipY
+        console.log(l)
+        return l
+      });
   }
 }
 
@@ -1247,7 +1285,10 @@ var events = {
     e.target.closest('.book-video').remove();
   },
 
-  '#level-to:change': BlockController.UpdateLevelTo
+  '#level-to:change': BlockController.UpdateLevelTo,
+
+  '#level-flip-y:change': BlockController.UpdateLevelFlip,
+  '#level-flip-x:change': BlockController.UpdateLevelFlip,
 }
 
 function AddEvents(selector) {
@@ -1320,6 +1361,9 @@ function RenderObjectAreaSelection() {
       : 'Paint tiles reserved for changing levels (transition behavior comes next).';
   if (isCollision == false) {
     document.getElementById('level-to').style.display = 'flex';
+
+    $('#level-flip-x').prop("checked", selectedBlock.object_area.level[0][4])
+    $('#level-flip-y').prop("checked", selectedBlock.object_area.level[0][5])
   } else {
     document.getElementById('level-to').style.display = 'none';
   }
@@ -1336,7 +1380,11 @@ function SaveObjectAreaSelection() {
   const block = view.blocks[control.block_id].block;
   const area = NormalizeObjectArea(block.object_area);
   area[mode] = Array.from(document.querySelectorAll('#block-image-edit-area .object-area-preview.selected'))
-    .map(el => el.id.replace('object-area-', '').split('_').map(Number));
+    .map(el => {
+      const cell = el.id.replace('object-area-', '').split('_').map(Number);
+      if (mode === 'level') cell.push($('#level-to-name').val());
+      return cell;
+    });
   control.object_area_preview.object_area = area;
   BlockService.UpdateBlock();
 }
@@ -1826,14 +1874,12 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
 }
 
 
-function IncludeObjectArea(block, row, col, repeatRow, repeatCol, mode = 'collision') {
+function IncludeArea(block, row, col, repeatRow, repeatCol, mode = 'collision', flipX, flipY) {
   const [top, right, bottom, left] = (
-    block.object_area_inclusions || '1 1 1 1'
+    mode == 'collision' ? (block.object_area_inclusions || '1 1 1 1') : (block.level_area_inclusions || '1 1 1 1')
   ).split(' ').map(Number);
 
-  if (top && right && bottom && left) return true;
-
-  const cells = ObjectAreaCells(block, mode, 'collision').concat(ObjectAreaCells(block, mode, 'level'));
+  const cells = ObjectAreaCells(block, mode, mode)
   if (!cells.length) return false;
 
   const rows = cells.map(pair => pair[0]);
@@ -1926,7 +1972,6 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
   const segmentY = (height * transform.scale) / (7 * fy);
   var viewElement = document.getElementById('view')
 
-  if (block.id == '010e33e8-646f-471d-ae39-c2ac8a5db054') console.log(block, transform)
   // collision
   for (var object_area of ObjectAreaCells(block)) {
 
@@ -1946,12 +1991,13 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
       left: newLeft + 'px'
     });
 
-    if (IncludeObjectArea(
+    if (IncludeArea(
       block,
       object_area[0],
       object_area[1],
       repeatRow,
-      repeatCol
+      repeatCol,
+      'collision'
     )) {
       view.object_areas.push({
         block_id: block.id,
@@ -1986,12 +2032,15 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
     });
 
 
-    if (!IncludeObjectArea(
+    if (!IncludeArea(
       block,
       level_area[0],
       level_area[1],
       repeatRow,
-      repeatCol
+      repeatCol,
+      'level',
+      level_area[4],
+      level_area[5]
     )) {
       continue;
     }
@@ -2008,7 +2057,9 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
       top: newTop,
       left: newLeft,
       width: segmentX,
-      height: segmentY
+      height: segmentY,
+      flipX: level_area[4],
+      flipY: level_area[5]
     });
   }
 }
@@ -2379,8 +2430,8 @@ function LoadPlayerPostInitalFromServer(res) {
 
 }
 
-function LoadLevel(res) {
-  console.log('load level')
+function LoadLevel(res, flipX = false, flipY = false) {
+  console.log('load level', res)
   player.level_id = res.data.id
   LoadPlayerPostInitalFromServer(res)
   LoadTiles(player.level_grid)
@@ -2409,6 +2460,8 @@ function LoadLevel(res) {
     LoadView();
   })
 
+  view.flipX = flipX
+  view.flipY = flipY
 
   RenderGandalf(window.view.sprite.el)
 }
@@ -2419,7 +2472,7 @@ function LoadData() {
   // player
   PlayerService.LoadSession(() => {
     PlayerService.LoadPlayer(() => {
-      PlayerService.EnterLevel(player.level_id)
+      PlayerService.EnterLevel(player.level_id, true)
     });
   })
   
@@ -2510,7 +2563,7 @@ function UpdateInteractions() {
   }
 
   for (let id in view.interactables) {
-    if (view.interactables[id][0] == 'left' && view.sprite.direction == 'left') {
+    if (view.interactables[id]&& view.interactables[id][0] == 'left' && view.sprite.direction == 'left') {
       id = id.split('::')[0]
       if (view.sprite.keys.has('addEventListener') && !view.interactions[id]) {
         view.interactions[id] = view.blocks[id]
@@ -2520,7 +2573,7 @@ function UpdateInteractions() {
       }
     }
 
-    if (view.interactables[id][1] == 'up' && view.sprite.direction == 'up') {
+    if (view.interactables[id] && view.interactables[id][1] == 'up' && view.sprite.direction == 'up') {
       id = id.split('::')[0]
       if (view.sprite.keys.has('w') && !view.interactions[id]) {
         view.interactions[id] = view.blocks[id]
@@ -2629,6 +2682,19 @@ function RenderGandalf() {
   };
 
 
+  if (view.flipX) {
+    view.sprite.position.left = 1 - view.sprite.position.left
+    css.left = view.$width * view.sprite.position.left
+    view.flipX = false;
+  }
+
+  if (view.flipY) {
+    view.sprite.position.top = 1 - view.sprite.position.top
+    css.top = view.$height * view.sprite.position.top
+    view.flipY = false;
+  }
+
+
   if (i++ == 100) {
     i = 0
   }
@@ -2692,7 +2758,7 @@ function RenderGandalf() {
     for (const area of levelAreas) {
       if (touches(area)) {
         view.active_level_trigger = area.block_id;
-        PlayerService.EnterLevel(area.destination, false);
+        PlayerService.EnterLevel(area.destination, false, area.flipX, area.flipY);
         break;
       }
     }

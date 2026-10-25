@@ -148,6 +148,7 @@ namespace App.Services
         }
         public async Task<ServiceResult> UpdateBlock(string user_name, string recurrence_id, Block block)
         {
+            Console.WriteLine("Update Block " + block.level_area_inclusions);
             try
             {
                 using var connection = db.GetConnection();
@@ -171,6 +172,7 @@ namespace App.Services
                         level_grid = @level_grid,
                         css = @css,
                         object_area_inclusions = @object_area_inclusions,
+                        level_area_inclusions = @level_area_inclusions,
                         object_area = @object_area,
                         tag = @tag
                     WHERE recurrence_id = @recurrence_id
@@ -186,6 +188,7 @@ namespace App.Services
                 command.Parameters.AddWithValue("dir_x", block.dir_x);
                 command.Parameters.AddWithValue("translate_object_area", block.translate_object_area);
                 command.Parameters.AddWithValue("object_area_inclusions", block.object_area_inclusions);
+                command.Parameters.AddWithValue("level_area_inclusions", block.level_area_inclusions);
                 command.Parameters.AddWithValue("random_rotation", block.random_rotation);
                 command.Parameters.AddWithValue("level_id", block.level_id);
                 command.Parameters.AddWithValue("level_grid", block.level_grid);
@@ -197,6 +200,9 @@ namespace App.Services
                     command.Parameters.AddWithValue("parent_id", block.parent_id);
                 }
                 command.Parameters.AddWithValue("css", block.css);
+
+
+                Console.WriteLine(block.css);
                 await command.ExecuteNonQueryAsync();
 
 
