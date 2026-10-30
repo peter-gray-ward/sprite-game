@@ -226,9 +226,18 @@ main {
 	text-align: left;
 }
 
+#level-to { flex-direction: column; gap: 4px; }
+.level-row { display: flex; align-items: center; gap: 6px; }
+.level-row .level-name { flex-grow: 1; min-width: 0; }
+
 #boundary-tile-ids {
 	height: calc(90vh / 5);
 	overflow: auto;
+}
+
+#block-image-edit-area .object-area-preview.locked {
+  cursor: not-allowed;
+  background: rgba(120, 120, 120, .55);
 }
 
 .button {
@@ -436,7 +445,7 @@ a.ui-button:active,
 #edit-block {
 	background: aliceblue;
 	width: 100%;
-	height: calc(100vh - 10vh);
+	height: 100%;
 	display: flex;
 	flex-direction: column;
 	flex-wrap: wrap;
@@ -451,7 +460,7 @@ a.ui-button:active,
 }
 
 #edit-block .applications {
-	width: 100%;
+	width: 50%;
 	height: 5vh;
 	display: flex;
 	flex-direction: row;
@@ -491,11 +500,13 @@ a.ui-button:active,
 	width: 50%;
 	display: flex;
 	flex-direction: column;
+	justify-content: space-between;
 }
 
 #edit-block-css {
 	width: 100%;
 	flex-grow: 1;
+	height: 10rem;
 	margin: 0;
 }
 
@@ -778,7 +789,19 @@ a.ui-button:active,
 
 
 
+.level-row-inclusions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 10px 30px;
+  font-size: 12px;
+}
 
+.level-row-inclusions label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
 
 
 

@@ -203,6 +203,10 @@
                                         </label>
                                         <div id="parent-id"></div>
                                     </div>
+
+                                    <div id="edit-block-css">
+                                        <textarea id="block-css"></textarea>
+                                    </div>
                                 </div>
                             </section>
                             <section>
@@ -213,17 +217,10 @@
                                           <option value="level">Select Level</option>
                                       </select>
                                       <div id="level-to">
-                                        <input type="text" id="level-to-name" placeholder="level-to name" />
                                         <p id="level-to-err-message" style="color:red"></p>
-                                        <div class="check-vertical">
-                                            <label for="level-flip-y">Flip Y</label>
-                                            <input type="checkbox" id="level-flip-y">
-                                        </div>
-                                        <div class="check-vertical">
-                                            <label for="level-flip-y">Flip X</label>
-                                            <input type="checkbox" id="level-flip-x">
-                                        </div>
-                                        
+     
+                                        <div id="level-rows"></div>
+                                        <button type="button" class="button" id="add-level-row">+ level</button>
                                       </div>
                                       <div class="level-direction">
                                         <select id="level-direction">
@@ -242,9 +239,6 @@
                                     <div id="block-image-container">
                                         <div id="block-image"></div>
                                     </div>
-                                </div>
-                                <div id="edit-block-css">
-                                    <textarea id="block-css"></textarea>
                                 </div>
                             </section>
                         </section>

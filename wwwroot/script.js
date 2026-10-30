@@ -377,7 +377,7 @@ const BlockService = {
     xhr.addEventListener("load", function() {
       var res = StringParser.ParseJSON(this.response);
       if (res.status == 'success') {
-        DeleteFromBlockCache(view.blocks[control.block_id].block.recurrence_id);
+        // DeleteFromBlockCache(view.blocks[control.block_id].block.recurrence_id);
         BlockController.DeselectBlock()
         LoadView();
       }
@@ -451,7 +451,6 @@ const BlockService = {
         console.error(err)
       }
       if (res.status == 'success') {
-        console.log(res)
         view.level_areas = [];
 
         control.needsUpdate = false
@@ -461,6 +460,7 @@ const BlockService = {
             view.level_areas = view.level_areas.concat(block.object_area.level)
           }
           block.css = StringParser.ParseJSON(block.css)
+
           if (!view.blocks[block.id]) {
             view.blocks[block.id]  = {
               block: block,
@@ -536,7 +536,7 @@ const BlockService = {
       var res = StringParser.ParseJSON(this.response)
       if (res.status == 'success') {
         var newObjectArea = NormalizeObjectArea(res.data)
-        UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'object_area', newObjectArea)
+        // UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'object_area', newObjectArea)
         LoadView()
       }
     })
@@ -564,10 +564,12 @@ const BlockService = {
 
     xhr.send(JSON.stringify({
       ...block,
+      level_grid: String(block.level_grid),
       css: JSON.stringify(block.css),
       object_area: JSON.stringify(NormalizeObjectArea(block.object_area))
     }));
   },
+
   ApplyBlockEdits: function() {
     let payload = Object.assign({}, view.blocks[control.block_id].block)
     var xhr = new XMLHttpRequest()
@@ -576,9 +578,7 @@ const BlockService = {
     xhr.addEventListener('load', function() {
       let res
       try {
-        res = StringParser.ParseJSON(this.response)
-
-        console.log(res, payload)
+        res = StringParser.ParseJSON(this.response);
         control.needsUpdate = true
         LoadView()
       } catch (err) {
@@ -589,6 +589,9 @@ const BlockService = {
     payload.level_grid = String(payload.level_grid);
     payload.object_area = JSON.stringify(NormalizeObjectArea(payload.object_area));
     payload.level_area = JSON.stringify(NormalizeObjectArea(payload.level_area));
+    payload.level_area_inclusions = JSON.stringify(
+      ParseLevelAreaInclusions(payload.level_area_inclusions)
+    );
 
     if (payload.parent_id.length !== 36) {
       payload.parent_id = null;
@@ -607,7 +610,7 @@ const BlockService = {
     xhr.addEventListener('load', function() {
       var res = StringParser.ParseJSON(this.response);
       if (res.status == 'success') {
-        UpdateBlockCache(block.recurrence_id, edits)
+        // UpdateBlockCache(block.recurrence_id, edits)
         LoadView()
       }
     });
@@ -771,7 +774,7 @@ const BlockController = {
         const id = button.dataset.id;
         const delta = button.classList.contains('ground-up') ? 1 : -1;
 
-        ChangeGroundOrder(id, delta);
+        BlockController.ChangeGroundOrder(id, delta);
       });
     });
   },
@@ -923,37 +926,32 @@ const BlockController = {
 
       $('#block-image').css(css)
       
-      UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'css', newCSS)
+      // UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, 'css', newCSS)
       $(`.block[data-recurrence_id="${view.blocks[control.block_id].block.recurrence_id}"]`).css(newCSS)
     }
 
-    UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, {
-      'dimension_x': +$('#block-type-edit .dimx').val(),
-      'dimension_y': +$('#block-type-edit .dimy').val(),
-      'start_x': +$('#block-type-edit .x-start').val(),
-      'start_y': +$('#block-type-edit .y-start').val(),
-      'repeat_x': +$('#block-type-edit .x-repeat').val(),
-      'repeat_y': +$('#block-type-edit .y-repeat').val(),
-      'dir_x': +$('#block-type-edit .x-dir').val(),
-      'dir_y': +$('#block-type-edit .y-dir').val(),
-      'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0,
-      'object_area_inclusions': $('#object-area-inclusions input')
-        .map(function() {
-          return $(this).is(':checked') ? '1' : '0';
-        })
-        .get()
-        .join(' '),
-      'level_area_inclusions': $('#level-area-inclusions input')
-        .map(function() {
-          return $(this).is(':checked') ? '1' : '0';
-        })
-        .get()
-        .join(' '),
-      'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0,
-      'ground': $('#ground').is(':checked') ? 1 : 0,
-      'parent_id': $("#parent-id").html(),
-      'level_id': view.blocks[control.block_id].block.level_id
-    });
+    // UpdateBlockCache(view.blocks[control.block_id].block.recurrence_id, {
+    //   'dimension_x': +$('#block-type-edit .dimx').val(),
+    //   'dimension_y': +$('#block-type-edit .dimy').val(),
+    //   'start_x': +$('#block-type-edit .x-start').val(),
+    //   'start_y': +$('#block-type-edit .y-start').val(),
+    //   'repeat_x': +$('#block-type-edit .x-repeat').val(),
+    //   'repeat_y': +$('#block-type-edit .y-repeat').val(),
+    //   'dir_x': +$('#block-type-edit .x-dir').val(),
+    //   'dir_y': +$('#block-type-edit .y-dir').val(),
+    //   'translate_object_area': $("#translate-object-area").is(":checked") ? 1 : 0,
+    //   'object_area_inclusions': $('#object-area-inclusions input')
+    //     .map(function() {
+    //       return $(this).is(':checked') ? '1' : '0';
+    //     })
+    //     .get()
+    //     .join(' '),
+    //   'level_area_inclusions': ParseLevelAreaInclusions(),
+    //   'random_rotation': $("#random-rotation").is(":checked") ? 1 : 0,
+    //   'ground': $('#ground').is(':checked') ? 1 : 0,
+    //   'parent_id': $("#parent-id").html(),
+    //   'level_id': view.blocks[control.block_id].block.level_id
+    // });
 
     BlockService.ApplyBlockEdits()
   },
@@ -1060,7 +1058,6 @@ const BlockController = {
   },
 
   SelectBlock: function(event) {
-    console.log('SelectBlock', event.srcElement)
     const blockId = event.currentTarget?.dataset?.id
       || event.srcElement?.dataset?.id;
 
@@ -1119,6 +1116,10 @@ const BlockController = {
 
     const block = view.blocks[control.block_id].block;
 
+    console.log(`Selecting...
+
+`, block)
+
     document.querySelector('#image-tag').innerHTML = view.tags.map(t => {
       return `<option value="${t}" ${t == block.tag ? "selected" : ""}>${t}</option>`
     })
@@ -1145,6 +1146,9 @@ const BlockController = {
     $('#object-area-inclusions input').each(function(index) {
       $(this).prop('checked', inclusions[index] === '1');
     });
+
+    if (block.id == 'c134c3ef-ddfb-4fd2-b816-7290dedbbec0')
+      console.log('inclusions', block.level_area_inclusions)
 
     inclusions = (
       block.level_area_inclusions || '1 1 1 1'
@@ -1188,8 +1192,9 @@ const BlockController = {
     ValidateBlockCSS()
     BlockController.AdjustEditBlockImage()
 
-    let levelToName = block.object_area.level.length ? block.object_area.level[0][2] : null
-    $('#level-to-name').val(levelToName)
+    control.level_rows = LevelRowsFromBlock(block);
+    control.active_level_row = 0;
+    RenderLevelRows();
 
     $('.z-index').val(css.zIndex)
 
@@ -1293,11 +1298,8 @@ var events = {
     e.target.closest('.book-video').remove();
   },
 
-  '#level-to:change': BlockController.UpdateLevelTo,
-
-  '#level-flip-y:change': BlockController.UpdateLevelFlip,
-  '#level-flip-x:change': BlockController.UpdateLevelFlip,
-  '#level-direction:change': BlockController.UpdateLevelDirection,
+  '#level-rows:change': LevelRowChanged,
+  '#add-level-row:click': AddLevelRow,
 }
 
 function AddEvents(selector) {
@@ -1351,7 +1353,14 @@ function RenderObjectAreaSelection() {
   const selectedBlock = view.blocks[control.block_id]?.block;
   const mode = CurrentObjectAreaMode();
   const area = selectedBlock ? NormalizeObjectArea(selectedBlock.object_area) : NormalizeObjectArea([]);
-  const selected = new Set(area[mode].map(([row,col]) => `${row}_${col}`));
+  const activeId = control.level_rows?.[control.active_level_row]?.[1];
+  const isActive = cell => mode !== 'level' || cell[3] === activeId;
+  const locked = new Set(mode === 'level'
+    ? area.level.filter(c => !isActive(c)).map(([r, c]) => `${r}_${c}`)
+    : []);
+  const selected = new Set(area[mode].filter(isActive)
+    .map(([r, c]) => `${r}_${c}`)
+    .filter(key => !locked.has(key)));
   document.querySelectorAll('#block-image-edit-area .object-area-preview').forEach(tile => {
     const key = tile.id.replace('object-area-', '');
     tile.classList.toggle('selected', selected.has(key));
@@ -1359,27 +1368,18 @@ function RenderObjectAreaSelection() {
       .some(([row,col]) => `${row}_${col}` === key));
     tile.setAttribute('aria-pressed', String(selected.has(key)));
     tile.title = `Row ${Number(key.split('_')[0])+1}, column ${Number(key.split('_')[1])+1}`;
+    tile.classList.toggle('locked', locked.has(key));
   });
-  document.getElementById('object-area-selection-count').textContent =
-    `${area[mode].length} selected`;
+  document.getElementById('object-area-selection-count').textContent = `${selected.size} selected`;
+
 
   let isCollision = mode == 'collision';
   document.getElementById('object-area-mode-help').textContent =
     isCollision
       ? 'Paint tiles that block player movement.'
       : 'Paint tiles reserved for changing levels (transition behavior comes next).';
-  if (isCollision == false) {
-    document.getElementById('level-to').style.display = 'flex';
-    document.querySelector('.level-direction').style.display = 'flex'
+  document.getElementById('level-to').style.display = isCollision ? 'none' : 'flex';
 
-    $('#level-flip-x').prop("checked", selectedBlock.object_area.level[0][4])
-    $('#level-flip-y').prop("checked", selectedBlock.object_area.level[0][5])
-
-    $('#level-direction').val(area.level[0][6])
-  } else {
-    document.getElementById('level-to').style.display = 'none';
-    document.querySelector('.level-direction').style.display = 'none'
-  }
 }
 
 function ObjectAreaSelectionModeChanged() {
@@ -1387,21 +1387,168 @@ function ObjectAreaSelectionModeChanged() {
   RenderObjectAreaSelection();
 }
 
+function LevelRowsFromBlock(block) {
+  const rows = [];
+  const seen = new Set();
+
+  for (const cell of block.object_area.level) {
+    const id = cell[3];
+
+    if (!seen.has(id)) {
+      seen.add(id);
+      rows.push(cell.slice(2));
+    }
+  }
+
+  return rows.length
+    ? rows
+    : [['', NewLevelAreaId(), false, false, 'up']];
+}
+
+function RenderLevelRows() {
+  const block = view.blocks[control.block_id]?.block;
+  if (!block) return;
+
+  const directions = ['up', 'down', 'left', 'right'];
+  const sides = ['Top', 'Right', 'Bottom', 'Left'];
+
+  document.getElementById('level-rows').innerHTML =
+    control.level_rows.map((row, i) => {
+      const inclusion = block.level_area_inclusions.split(' ')
+
+      return `
+        <div class="level-row" data-index="${i}">
+          <input type="radio" name="active-level-row"
+            ${i === control.active_level_row ? 'checked' : ''}>
+
+          <input type="text" class="level-name"
+            placeholder="level-to name"
+            value="${row[0] ?? ''}">
+
+          <label>Flip X
+            <input type="checkbox" class="level-flip-x"
+              ${row[2] ? 'checked' : ''}>
+          </label>
+
+          <label>Flip Y
+            <input type="checkbox" class="level-flip-y"
+              ${row[3] ? 'checked' : ''}>
+          </label>
+
+          <select class="level-dir">
+            ${directions.map(d => `
+              <option ${d === row[4] ? 'selected' : ''}>${d}</option>
+            `).join('')}
+          </select>
+
+          <div class="level-row-inclusions">
+            ${sides.map((side, j) => `
+              <label>
+                <input type="checkbox"
+                  class="level-inclusion"
+                  ${inclusion[j] === '1' ? 'checked' : ''}>
+                ${side}
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+}
+
+function LevelRowChanged(event) {
+  const rowEl = event.target.closest('.level-row');
+  if (!rowEl) return;
+
+  const i = Number(rowEl.dataset.index);
+
+  if (event.target.name === 'active-level-row') {
+    control.active_level_row = i;
+    RenderLevelRows();
+    RenderObjectAreaSelection();
+    return;
+  }
+
+  const block = view.blocks[control.block_id]?.block;
+  if (!block) return;
+
+  const id = control.level_rows[i][1];
+
+  const row = [
+    rowEl.querySelector('.level-name').value.trim(),
+    id,
+    rowEl.querySelector('.level-flip-x').checked,
+    rowEl.querySelector('.level-flip-y').checked,
+    rowEl.querySelector('.level-dir').value
+  ];
+
+  const inclusions = Array.from(
+    rowEl.querySelectorAll('.level-inclusion')
+  ).map(input => input.checked ? '1' : '0').join(' ');
+
+  const map = ParseLevelAreaInclusions(block.level_area_inclusions);
+  map[id] = inclusions;
+
+  block.level_area_inclusions = JSON.stringify(map);
+  control.level_rows[i] = row;
+
+  block.object_area.level = block.object_area.level.map(cell =>
+    cell[3] === id
+      ? [cell[0], cell[1], ...row]
+      : cell
+  );
+
+  RenderObjectAreaSelection();
+}
+
+function AddLevelRow() {
+  control.level_rows.push([
+    '',
+    NewLevelAreaId(),
+    false,
+    false,
+    'up'
+  ]);
+
+  control.active_level_row = control.level_rows.length - 1;
+
+  RenderLevelRows();
+  RenderObjectAreaSelection();
+}
+
+function NewLevelAreaId() {
+  return crypto.randomUUID();
+}
+
+function ParseLevelAreaInclusions(value) {
+  return $('#level-area-inclusions input')
+    .map(function() {
+      return $(this).is(':checked') ? '1' : '0'
+    })
+    .get()
+    .join(' ')
+}
+
 function SaveObjectAreaSelection() {
   if (!control.block_id || !view.blocks[control.block_id]) return;
   const mode = CurrentObjectAreaMode();
   const block = view.blocks[control.block_id].block;
   const area = NormalizeObjectArea(block.object_area);
-  area[mode] = Array.from(document.querySelectorAll('#block-image-edit-area .object-area-preview.selected'))
-    .map(el => {
-      const cell = el.id.replace('object-area-', '').split('_').map(Number);
-      if (mode === 'level') cell.push($('#level-to-name').val());
-      return cell;
-    });
+  const row = control.level_rows[control.active_level_row];
+  const kept = mode === 'level'
+    ? area.level.filter(c => c[3] !== row[1])
+    : [];
+
+  area[mode] = kept.concat(
+    Array.from(document.querySelectorAll('#block-image-edit-area .object-area-preview.selected:not(.locked)'))
+      .map(el => {
+        const [r, c] = el.id.replace('object-area-', '').split('_').map(Number);
+        return mode === 'level' ? [r, c, ...row] : [r, c];
+      })
+  );
   control.object_area_preview.object_area = area;
   BlockService.UpdateBlock();
 }
-
 
 Array.prototype.contains = function(str) {
   for (var i = 0; i < this.length; i++) {
@@ -1473,8 +1620,6 @@ function ParseBackgroundImageId(element) {
     return id
   }
 }
-
-
 
 function FinalizeBlocks() {
 
@@ -1594,8 +1739,6 @@ function SelectTag(event) {
   }
 }
 
-
-
 function MouseOverBlockRow(event) {
   var tr = event.srcElement;
   while (tr && !tr.classList.contains('tr')) {
@@ -1630,6 +1773,7 @@ function SelectManageBlockRow(event) {
 
 function ObjectAreaPreviewMousedown(event) {
   if (!control.block_id || !view.blocks[control.block_id]) return;
+  if (event.target.classList.contains('locked')) return;
   view.activity.click = true;
   event.preventDefault()
   var selected = $(event.target).hasClass("selected");
@@ -1679,32 +1823,32 @@ function isValidCSS(rules) {
     return true;
 }
 
-function UpdateBlockCache(recurrence_id, key, value) {
-  if (typeof key == 'object') {
-    for (var id in view.blocks) {
-      if (view.blocks[id].block.recurrence_id == recurrence_id) {
-        for (var _key in key) {
-          view.blocks[id].block[_key] = key[_key]
-        }
-      }
-    }
-  } else {
-    for (var id in view.blocks) {
-      if (view.blocks[id].block.recurrence_id == recurrence_id) {
-        view.blocks[id].block[key] = value
-      }
-    }
-  }
-}
+// function UpdateBlockCache(recurrence_id, key, value) {
+//   if (typeof key == 'object') {
+//     for (var id in view.blocks) {
+//       if (view.blocks[id].block.recurrence_id == recurrence_id) {
+//         for (var _key in key) {
+//           view.blocks[id].block[_key] = key[_key]
+//         }
+//       }
+//     }
+//   } else {
+//     for (var id in view.blocks) {
+//       if (view.blocks[id].block.recurrence_id == recurrence_id) {
+//         view.blocks[id].block[key] = value
+//       }
+//     }
+//   }
+// }
 
-function DeleteFromBlockCache(recurrence_id) {
-  for (var id in view.blocks) {
-    if (view.blocks[id].block.recurrence_id == recurrence_id) {
-      console.log("deleting block " + id + " from view.blocks...");
-      delete view.blocks[id];
-    }
-  }
-}
+// function DeleteFromBlockCache(recurrence_id) {
+//   for (var id in view.blocks) {
+//     if (view.blocks[id].block.recurrence_id == recurrence_id) {
+//       console.log("deleting block " + id + " from view.blocks...");
+//       delete view.blocks[id];
+//     }
+//   }
+// }
 
 function ValidateBlockCSS() {
   var css = $("#block-css").val()
@@ -1755,14 +1899,17 @@ function isOverlappedByGround(element) {
 
 function AddObjectAreas() {
   view.object_areas = [];
-  view.level_areas = []
-  $('.object-area').remove();
+  view.level_areas = [];
 
-  if (player.level?.boundary_tile_ids) {
-    for (const id of player.level.boundary_tile_ids) {
-      AddObjectAreaFromBoundaryId(id);
-    }
-  }
+  $('.object-area, .level-area').remove();
+
+  // todo
+  //
+  // if (player.level?.boundary_tile_ids) {
+  //   for (const id of player.level.boundary_tile_ids) {
+  //     AddObjectAreaFromBoundaryId(id);
+  //   }
+  // }
 
   for (const { block, divs } of Object.values(view.blocks)) {
     divs.forEach((div, index) => {
@@ -1800,45 +1947,7 @@ function AddObjectAreas() {
 }
 
 function AddLevelAreas() {
-  view.object_areas = [];
-  $('.level-area').remove();
-
-  if (player.level?.boundary_tile_ids) {
-    for (const id of player.level.boundary_tile_ids) {
-      AddLevelAreaFromBoundaryId(id);
-    }
-  }
-
-  for (const { block, divs } of Object.values(view.blocks)) {
-    divs.forEach((div, index) => {
-      const renderedBlock = {
-        ...block,
-        start_x: Number(div.dataset.startX),
-        start_y: Number(div.dataset.startY)
-      };
-
-      const width = div.offsetWidth;
-      const height = div.offsetHeight;
-      const top = div.offsetTop;
-      const left = div.offsetLeft;
-
-      const img = control.image_sizes?.[block.image_id];
-      const aspect = img ? img.w / img.h : width / height;
-
-      CreateAndAddBlockArea(
-        renderedBlock,
-        top,
-        left,
-        width,
-        height,
-        index,
-        img,
-        aspect
-      );
-    });
-  }
-
-  FinalizeBlocks();
+  AddObjectAreas();
 }
 
 function GetBlockDimensions(block) {
@@ -1888,16 +1997,32 @@ function calculateAbsoluteOffsets(left, top, width, height, transform, originX =
 }
 
 
-function IncludeArea(block, row, col, repeatRow, repeatCol, mode = 'collision', flipX, flipY) {
-  const [top, right, bottom, left] = (
-    mode == 'collision' ? (block.object_area_inclusions || '1 1 1 1') : (block.level_area_inclusions || '1 1 1 1')
-  ).split(' ').map(Number);
 
-  const cells = ObjectAreaCells(block, mode, mode)
+
+function IncludeArea(
+  block,
+  row,
+  col,
+  repeatRow,
+  repeatCol,
+  mode = 'collision',
+  levelAreaId = null
+) {
+  const inc = mode === 'level'
+    ? block.level_area_inclusions
+    : (block.object_area_inclusions);
+
+  const [top, right, bottom, left] =
+    String(inc).split(' ').map(Number);
+
+  const cells = mode === 'level'
+    ? ObjectAreaCells(block, 'level').filter(c => c[3] === levelAreaId)
+    : ObjectAreaCells(block, 'collision');
+
   if (!cells.length) return false;
 
-  const rows = cells.map(pair => pair[0]);
-  const cols = cells.map(pair => pair[1]);
+  const rows = cells.map(c => Number(c[0]));
+  const cols = cells.map(c => Number(c[1]));
 
   const minRow = Math.min(...rows);
   const maxRow = Math.max(...rows);
@@ -1910,21 +2035,20 @@ function IncludeArea(block, row, col, repeatRow, repeatCol, mode = 'collision', 
   const dirX = Number(block.dir_x) < 0 ? -1 : 1;
   const dirY = Number(block.dir_y) < 0 ? -1 : 1;
 
-  // Identify the outermost repeated instances.
   const firstRow = dirY > 0 ? 0 : repeatY - 1;
   const lastRow = dirY > 0 ? repeatY - 1 : 0;
 
   const firstCol = dirX > 0 ? 0 : repeatX - 1;
   const lastCol = dirX > 0 ? repeatX - 1 : 0;
 
-  // Include only areas belonging to selected OUTER edges.
-  return (
+  return Boolean(
     (top && repeatRow === firstRow && row === minRow) ||
     (right && repeatCol === lastCol && col === maxCol) ||
     (bottom && repeatRow === lastRow && row === maxRow) ||
     (left && repeatCol === firstCol && col === minCol)
   );
 }
+
 
 
 function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspect) {
@@ -2045,7 +2169,6 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
       left: newLeft + 'px'
     });
 
-
     if (!IncludeArea(
       block,
       level_area[0],
@@ -2053,8 +2176,7 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
       repeatRow,
       repeatCol,
       'level',
-      level_area[4],
-      level_area[5]
+      level_area[3] // unique area ID, not destination
     )) {
       continue;
     }
@@ -2066,6 +2188,7 @@ function CreateAndAddBlockArea(block, top, left, width, height, index, img, aspe
 
     view.level_areas.push({
       block_id: block.id,
+      level_area_id: level_area[3],
       id: levelAreaId,
       destination: level_area[2],
       top: newTop,
@@ -2640,6 +2763,22 @@ function InteractWithBlock(event) {
   }
 }
 
+function SpriteBox(pos) {
+  const h = $("#gandalf").height(), w = $("#gandalf").width();
+  const top = pos.top * view.$height, left = pos.left * view.$height;
+  return {
+    top: top + h * .75, bottom: top + h * .85,
+    left: left + w * .333, right: left + w * .667
+  };
+}
+
+function Blocked(pos) {
+  const b = SpriteBox(pos);
+  return view.object_areas.some(a =>
+    b.left < a.left + a.width && b.right > a.left &&
+    b.top < a.top + a.height && b.bottom > a.top
+  );
+}
 
 
 var i = 0;
@@ -2657,13 +2796,11 @@ function RenderGandalf() {
 
   for (const key of view.sprite.keys) {
     const movement = view.sprite.key_values[key];
-
     if (!movement) continue;
-
     isMoving = true;
-
     for (const pos in movement) {
       view.sprite.position[pos] += movement[pos];
+      if (Blocked(view.sprite.position)) view.sprite.position[pos] -= movement[pos];
     }
   }
 
